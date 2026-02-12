@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - codex/**   # Codex pushes to these branches
+      - codex/**
 
 permissions:
   contents: write
@@ -36,6 +36,51 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PAT }}
 
+      - name: Auto-resolve all review threads
+        if: steps.create-pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          echo "Fetching unresolved review threads..."
+
+          THREAD_IDS=$(gh api graphql -f query='
+            query($owner:String!, $repo:String!, $number:Int!) {
+              repository(owner:$owner, name:$repo) {
+                pullRequest(number:$number) {
+                  reviewThreads(first:100) {
+                    nodes {
+                      id
+                      isResolved
+                    }
+                  }
+                }
+              }
+            }' \
+            -f owner="$OWNER" \
+            -f repo="$REPO" \
+            -f number="$PR_NUMBER" \
+            --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | .id')
+
+          if [ -z "$THREAD_IDS" ]; then
+            echo "No unresolved threads found."
+          else
+            echo "Resolving threads..."
+            for THREAD_ID in $THREAD_IDS; do
+              gh api graphql -f query='
+                mutation($threadId:ID!) {
+                  resolveReviewThread(input:{threadId:$threadId}) {
+                    thread {
+                      isResolved
+                    }
+                  }
+                }' \
+                -f threadId="$THREAD_ID"
+            done
+          fi
+
       - name: Enable auto-merge
         if: steps.create-pr.outputs.pull-request-number != ''
         uses: peter-evans/enable-pull-request-automerge@v3
@@ -43,3 +88,4 @@ jobs:
           token: ${{ secrets.PAT }}
           pull-request-number: ${{ steps.create-pr.outputs.pull-request-number }}
           merge-method: squash
+
