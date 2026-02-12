@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from random import random
+from random import choice, random
 from typing import Dict, Iterable
 
 from .config import OptimizationConfig
@@ -30,10 +30,10 @@ class ExperimentOptimizer:
         candidates = list(candidates)
         unseen = [c for c in candidates if self.arms[c].pulls == 0]
         if unseen:
-            return unseen[0]
+            return choice(unseen)
 
         if random() < self.config.epsilon_exploration:
-            return candidates[0]
+            return choice(candidates)
 
         return max(candidates, key=lambda c: self.arms[c].avg_reward)
 
