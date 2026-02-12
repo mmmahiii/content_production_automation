@@ -40,6 +40,8 @@ def upgrade() -> None:
         sa.Column("brief_payload", sa.JSON(), nullable=False),
         sa.Column("asset_payload", sa.JSON(), nullable=False),
         sa.Column("lifecycle_state", sa.String(length=32), nullable=False),
+        sa.Column("approval_status", sa.String(length=32), nullable=False),
+        sa.Column("approval_payload", sa.JSON(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),

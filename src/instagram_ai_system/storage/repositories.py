@@ -70,6 +70,8 @@ class BriefAssetRepository:
         lifecycle_state: str,
         schema_version: str,
         trace_id: str,
+        approval_status: str = "pending",
+        approval_payload: dict[str, Any] | None = None,
     ) -> BriefAssetModel:
         model = BriefAssetModel(
             id=asset_id,
@@ -77,6 +79,8 @@ class BriefAssetRepository:
             brief_payload=brief_payload,
             asset_payload=asset_payload,
             lifecycle_state=lifecycle_state,
+            approval_status=approval_status,
+            approval_payload=approval_payload or {},
             schema_version=schema_version,
             trace_id=trace_id,
         )

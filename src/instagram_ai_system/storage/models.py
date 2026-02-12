@@ -37,6 +37,8 @@ class BriefAssetModel(Base):
     brief_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     asset_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     lifecycle_state: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    approval_status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    approval_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
