@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/performance_snapshot.schema.json",
+  "title": "PerformanceSnapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "publishedPostId",
+    "capturedAt",
+    "metrics"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "publishedPostId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capturedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "window": {
+      "type": "string",
+      "enum": ["6h", "24h", "7d", "28d", "lifetime"]
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "views",
+        "retention",
+        "likes",
+        "comments",
+        "shares",
+        "saves",
+        "profileVisits"
+      ],
+      "properties": {
+        "views": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retention": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Normalized retention from 0 to 1."
+        },
+        "likes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "comments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "shares": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "saves": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "profileVisits": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "derivedRates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "likeRate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "commentRate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "shareRate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "saveRate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "profileVisitRate": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "normalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "baselineKey": {
+          "type": "string"
+        },
+        "zScores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "winsorized": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

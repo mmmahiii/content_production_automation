@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/content_candidate.schema.json",
+  "title": "ContentCandidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "createdAt",
+    "theme",
+    "variant",
+    "promptTemplateId",
+    "generationConstraints",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique candidate identifier."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "theme": {
+      "type": "string",
+      "minLength": 1
+    },
+    "variant": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Variant label or strategy bucket."
+    },
+    "promptTemplateId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generationConstraints": {
+      "type": "object",
+      "description": "Applied constraints at generation time.",
+      "additionalProperties": true
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "approved", "published", "archived"]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true,
+      "default": []
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
