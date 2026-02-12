@@ -11,6 +11,9 @@ import json
 import logging
 import time
 from dataclasses import dataclass
+from datetime import datetime
+from time import sleep
+from typing import Callable, Protocol
 from datetime import datetime, timezone
 from typing import Protocol
 from uuid import uuid4
@@ -268,6 +271,45 @@ def _run_ops(args: argparse.Namespace, *, logger: logging.Logger) -> dict:
 
     _log_event(logger, level="info", event="ops.succeeded", trace_id=trace_id, operation=args.ops, result=response)
     return response
+
+
+def run_loop(
+    config: RunConfig,
+    trend_source: TrendSource,
+    creative_engine: CreativeEngine,
+    policy_guard: PolicyGuard,
+    publisher: Publisher,
+    analytics: Analytics,
+    sleep_fn: Callable[[int], None] = sleep,
+    max_cycles: int | None = None,
+) -> list[dict]:
+    """Run one or many cycles based on configuration.
+
+    Args:
+        max_cycles: Optional loop guard for tests and controlled runs.
+    """
+
+    results: list[dict] = []
+    while True:
+        results.append(
+            run_cycle(
+                config=config,
+                trend_source=trend_source,
+                creative_engine=creative_engine,
+                policy_guard=policy_guard,
+                publisher=publisher,
+                analytics=analytics,
+            )
+        )
+
+        if config.once:
+            break
+        if max_cycles is not None and len(results) >= max_cycles:
+            break
+
+        sleep_fn(config.interval_seconds)
+
+    return results
 
 
 def main() -> None:
