@@ -43,3 +43,12 @@ class ExperimentOptimizer:
         stats.pulls += 1
         stats.reward_sum += reward
         return reward
+
+    def export_arm_state(self) -> dict[str, ArmStats]:
+        return {name: ArmStats(pulls=stats.pulls, reward_sum=stats.reward_sum) for name, stats in self.arms.items()}
+
+    def import_arm_state(self, arm_state: dict[str, ArmStats]) -> None:
+        for name, stats in arm_state.items():
+            state = self.arms[name]
+            state.pulls = stats.pulls
+            state.reward_sum = stats.reward_sum
