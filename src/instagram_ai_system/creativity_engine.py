@@ -115,8 +115,9 @@ class CreativityEngine:
             CreativityMode.BALANCED: "evidence-backed",
             CreativityMode.FULL: "high-risk, high-reward",
         }[mode]
-        disclosure = self.guardrails.mandatory_disclosures[0]
-        return f"{persona}: this is a {intensity} breakdown of {topic}. Save this and test it today. {disclosure}"
+        disclosure = next(iter(self.guardrails.mandatory_disclosures), "This content is AI-assisted.")
+        disclosure_suffix = f" {disclosure}" if disclosure else ""
+        return f"{persona}: this is a {intensity} breakdown of {topic}. Save this and test it today.{disclosure_suffix}"
 
     @staticmethod
     def _hashtags(niche: str, mode: CreativityMode) -> List[str]:

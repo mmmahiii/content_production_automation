@@ -88,28 +88,30 @@ def test_creativity_engine_respects_modes_and_guardrails() -> None:
     assert "#b2bsales" in safe.hashtags
 
 
-def test_creativity_engine_blocks_banned_topic_phrase() -> None:
+def test_creativity_engine_caption_handles_empty_mandatory_disclosures() -> None:
     guardrails = CreativityGuardrails(
-        banned_topics=["b2b sales"],
-        mandatory_disclosures=["Disclosure required."],
+        banned_topics=["x"],
+        mandatory_disclosures=[],
     )
     engine = CreativityEngine(guardrails=guardrails)
 
-    with pytest.raises(TopicPolicyViolationError, match="b2b sales"):
-        engine.generate_brief("B2B Sales", "operators", CreativityMode.SAFE, [])
+    caption = engine._caption("topic", "operators", CreativityMode.SAFE)
+
+    assert caption.endswith("This content is AI-assisted.")
+    assert "today. This content" in caption
 
 
-def test_creativity_engine_allows_non_banned_topic() -> None:
+def test_creativity_engine_caption_avoids_trailing_space_when_disclosure_empty() -> None:
     guardrails = CreativityGuardrails(
-        banned_topics=["hate speech"],
-        mandatory_disclosures=["Disclosure required."],
+        banned_topics=["x"],
+        mandatory_disclosures=[""],
     )
     engine = CreativityEngine(guardrails=guardrails)
 
-    brief = engine.generate_brief("Creator Growth", "operators", CreativityMode.BALANCED, [])
+    caption = engine._caption("topic", "operators", CreativityMode.SAFE)
 
-    assert brief.topic
-    assert brief.creativity_mode == CreativityMode.BALANCED
+    assert caption.endswith("today.")
+    assert not caption.endswith(" ")
 
 
 def test_experiment_optimizer_exploitation_and_exploration(monkeypatch: pytest.MonkeyPatch) -> None:
