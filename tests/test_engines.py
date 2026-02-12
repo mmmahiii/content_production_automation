@@ -6,7 +6,11 @@ import pytest
 
 from instagram_ai_system import CreativityMode
 from instagram_ai_system.config import OptimizationConfig, PageStrategyConfig
-from instagram_ai_system.creativity_engine import CreativityEngine, CreativityGuardrails
+from instagram_ai_system.creativity_engine import (
+    CreativityEngine,
+    CreativityGuardrails,
+    TopicPolicyViolationError,
+)
 from instagram_ai_system.experiment_optimizer import ExperimentOptimizer
 from instagram_ai_system.models import PublishedPostMetrics, ReelSignal, TrendInsight
 from instagram_ai_system.orchestration import InstagramAISystem
@@ -68,7 +72,7 @@ def test_trend_duration_bucket_boundaries() -> None:
 
 def test_creativity_engine_respects_modes_and_guardrails() -> None:
     guardrails = CreativityGuardrails(
-        banned_topics=["x"],
+        banned_topics=["forbidden phrase"],
         mandatory_disclosures=["Disclosure required."],
     )
     engine = CreativityEngine(guardrails=guardrails)
