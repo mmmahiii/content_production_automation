@@ -84,6 +84,32 @@ def test_creativity_engine_respects_modes_and_guardrails() -> None:
     assert "#b2bsales" in safe.hashtags
 
 
+def test_creativity_engine_caption_handles_empty_mandatory_disclosures() -> None:
+    guardrails = CreativityGuardrails(
+        banned_topics=["x"],
+        mandatory_disclosures=[],
+    )
+    engine = CreativityEngine(guardrails=guardrails)
+
+    caption = engine._caption("topic", "operators", CreativityMode.SAFE)
+
+    assert caption.endswith("This content is AI-assisted.")
+    assert "today. This content" in caption
+
+
+def test_creativity_engine_caption_avoids_trailing_space_when_disclosure_empty() -> None:
+    guardrails = CreativityGuardrails(
+        banned_topics=["x"],
+        mandatory_disclosures=[""],
+    )
+    engine = CreativityEngine(guardrails=guardrails)
+
+    caption = engine._caption("topic", "operators", CreativityMode.SAFE)
+
+    assert caption.endswith("today.")
+    assert not caption.endswith(" ")
+
+
 def test_experiment_optimizer_exploitation_and_exploration(monkeypatch: pytest.MonkeyPatch) -> None:
     optimizer = ExperimentOptimizer(OptimizationConfig(epsilon_exploration=0.0))
 
