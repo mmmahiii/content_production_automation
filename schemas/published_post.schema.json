@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/published_post.schema.json",
+  "title": "PublishedPost",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "contentCandidateId",
+    "platform",
+    "publishedAt",
+    "url"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contentCandidateId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "platform": {
+      "type": "string",
+      "enum": ["instagram", "tiktok", "youtube", "x", "linkedin", "other"]
+    },
+    "publishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "format": {
+      "type": "string",
+      "enum": ["short_video", "long_video", "image", "carousel", "text", "other"]
+    },
+    "theme": {
+      "type": "string"
+    },
+    "variant": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
