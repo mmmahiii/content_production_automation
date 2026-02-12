@@ -1,123 +1,57 @@
-# content_production_automation
+# Content Production Automation
 
-A production-oriented starter architecture for an **AI system that can run and optimize a monetizable Instagram page**, including:
+Implementation-first blueprint for an AI-driven automation system that discovers viral trends, generates creative Instagram content, publishes on schedule, and continuously optimizes performance for monetization.
 
-- continuous reel pattern ingestion
-- trend intelligence scoring
-- configurable creativity modes (`safe`, `balanced`, `full`)
-- content brief generation and batching
-- experiment optimization loop for viral lift
+## What this repository is for
 
-This is designed as a modular foundation that can be connected to your own data pipelines, model providers, rendering tools, and Instagram publishing stack.
+This repo defines the operating model and starter contract for an autonomous content loop:
 
-## System architecture
+1. **Ingest** trend and account signals from Instagram + external sources.
+2. **Generate** multiple creative assets (hooks, scripts, captions, visuals).
+3. **Review** safety, policy, and quality requirements.
+4. **Publish** to Instagram with resilient scheduling and retry behavior.
+5. **Analyze** outcomes and feed results into planning.
+6. **Optimize** toward growth + monetization KPIs.
 
-### 1) Trend Intelligence Engine
-Consumes observed reel signals and computes high-performing patterns using a virality proxy composed of:
-- retention
-- engagement (shares/saves/comments)
-- novelty
-- audio trend momentum
+The goal is to make it easy for an engineer to start building the system immediately with minimal ambiguity.
 
-Outputs ranked `TrendInsight` objects such as:
-- `hook:curiosity_gap`
-- `duration:10-19s`
+## Documentation map
 
-### 2) Creativity Engine (with full-creative mode)
-Produces content briefs with mode-specific behavior:
-- **safe**: practical and predictable
-- **balanced**: strategic and differentiated
-- **full**: high-divergence, contrarian, experimental
+- [Setup guide](docs/SETUP.md): Required environment variables, local boot commands, and secrets handling conventions.
+- [Operations runbook](docs/RUNBOOK.md): Daily/weekly production procedures and incident flows.
+- [Delivery roadmap](docs/ROADMAP.md): Milestones from MVP to optimization and monetization.
+- [Entrypoint contract](src/main.py): Minimal orchestration sequence and interface contract.
 
-Each brief includes:
-- topic and hook
-- storyboard shots
-- caption + CTA
-- hashtags
-- trend references
+## Recommended local architecture
 
-### 3) Content Factory
-Creates daily batches per persona, so one page can target multiple audience subtypes while preserving one niche strategy.
+Use a modular service layout to reduce coupling and simplify iterative delivery:
 
-### 4) Experiment Optimizer
-Epsilon-greedy archetype optimizer to adapt content formats over time.
-Tracks reward on weighted metrics:
-- views
-- likes
-- comments
-- shares
-- saves
-- watch time
+- **orchestrator**: owns workflow state machine and job scheduling.
+- **trend-intel**: pulls reels/accounts data and computes content opportunities.
+- **creative-engine**: produces scripts, captions, visual prompts, and variants.
+- **render-pipeline**: transforms generated assets into publish-ready media.
+- **publisher**: posts content and handles retries/backoff.
+- **analytics**: computes KPI deltas and writes feedback signals.
+- **policy-guard**: validates brand, legal, and platform policy constraints.
 
-### 5) Orchestrator (`InstagramAISystem`)
-Runs the closed loop:
-1. ingest observed reels
-2. mine patterns
-3. generate briefs with selected creativity mode
-4. tag content archetype for testing
-5. register post metrics and update optimization rewards
+For MVP, these can be modules in one codebase; split into services only when scaling demands it.
 
----
+## Suggested first build order
 
-## Project layout
+1. Implement `src/main.py` orchestration interfaces with mocked adapters.
+2. Add storage (SQLite/Postgres) for content plans, assets, and posting logs.
+3. Build trend ingestion + planner loop for one niche/topic.
+4. Integrate generation and manual approval.
+5. Add publishing and analytics sync.
+6. Automate optimization decisions based on KPI thresholds.
 
-```text
-src/instagram_ai_system/
-  config.py
-  models.py
-  trend_intelligence.py
-  creativity_engine.py
-  content_factory.py
-  experiment_optimizer.py
-  orchestration.py
-tests/
-  test_system.py
-```
+## Definition of done (MVP)
 
-## Quick start
+MVP is complete when the system can:
 
-```bash
-python -m pip install -e .
-pytest
-```
+- Generate a 7-day content calendar automatically.
+- Produce at least 3 post variants/day from trend + performance inputs.
+- Publish at scheduled times with retry support.
+- Persist engagement metrics and produce a weekly optimization report.
 
-Example orchestration flow:
-
-```python
-from instagram_ai_system import (
-    CreativityMode,
-    InstagramAISystem,
-    PageStrategyConfig,
-)
-
-strategy = PageStrategyConfig(
-    niche="AI Marketing",
-    target_personas=["freelancers", "agency founders"],
-    posting_times_utc=["12:00", "18:00"],
-    max_posts_per_day=3,
-    creativity_mode=CreativityMode.FULL,  # full creative freedom
-)
-
-system = InstagramAISystem(strategy)
-
-# run_creation_cycle(observed_reels) -> briefs ready for rendering/publishing
-# register_post_metrics(metrics) -> optimizer learns from outcomes
-```
-
-## How to connect this to a monetizable IG operation
-
-- **Data layer**: connect reel ingestion from Meta APIs, social listening tools, or your own scraper where compliant.
-- **Generation layer**: replace rule-based generation with LLM + prompt pipelines, multimodal models, and brand memory.
-- **Rendering layer**: plug in CapCut API, Runway, Adobe, or your own ffmpeg templates to auto-produce reels.
-- **Publishing layer**: queue through approved Instagram publishing APIs.
-- **Revenue layer**: add sponsored slots, lead magnets, affiliate CTA rotation, and funnel attribution tracking.
-- **Compliance layer**: enforce disclosure, policy-safe prompts, and region-specific ad regulations.
-
-## Suggested next upgrades
-
-1. Add a feature store for historical content and outcome embeddings.
-2. Add Bayesian optimizer / contextual bandits for better format selection.
-3. Add agentic scriptwriter + visual prompt generator with memory.
-4. Add anomaly detection for sudden trend shifts.
-5. Add auto-generated A/B thumbnail and hook variants.
-
+See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed milestones and acceptance criteria.
