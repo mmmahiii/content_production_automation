@@ -16,6 +16,7 @@ class PublishRequest:
     scheduled_at: datetime | None = None
     idempotency_key: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    approvals: dict[str, bool] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -40,7 +41,13 @@ class TransientPublishError(RuntimeError):
     pass
 
 
+class GovernanceApprovalError(RuntimeError):
+    """Raised when pre-publish governance approvals are missing."""
+
+
 class InstagramPublisher:
+    REQUIRED_APPROVALS = frozenset({"editorial", "compliance", "rights"})
+
     def __init__(
         self,
         client: Any,
@@ -58,6 +65,7 @@ class InstagramPublisher:
         self.audit_log: list[AuditEntry] = []
 
     def publish(self, request: PublishRequest) -> PublishResult:
+        self._enforce_approval_gate(request)
         key = request.idempotency_key or self._build_idempotency_key(request)
         payload = self._payload(request, key)
         self._audit("publish_attempt", key, payload)
@@ -115,6 +123,19 @@ class InstagramPublisher:
                         payload=payload,
                     )
                 self.sleeper(self.base_backoff_seconds * (2 ** (attempt - 1)))
+
+    def _enforce_approval_gate(self, request: PublishRequest) -> None:
+        missing = sorted([approval for approval in self.REQUIRED_APPROVALS if not request.approvals.get(approval, False)])
+        if missing:
+            payload = {
+                "brief_id": request.brief_id,
+                "missing_approvals": missing,
+                "provided_approvals": request.approvals,
+            }
+            self._audit("publish_blocked_missing_approvals", request.idempotency_key or "pending", payload)
+            raise GovernanceApprovalError(
+                "Publish blocked by governance gate; missing required approvals: " + ", ".join(missing)
+            )
 
     def _payload(self, request: PublishRequest, idempotency_key: str) -> dict[str, Any]:
         return {

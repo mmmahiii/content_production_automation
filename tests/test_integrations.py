@@ -1,6 +1,14 @@
+import pytest
+
 from datetime import datetime, timezone
 
-from integrations.instagram import InstagramMetricsCollector, InstagramPublisher, PublishRequest, TransientPublishError
+from integrations.instagram import (
+    GovernanceApprovalError,
+    InstagramMetricsCollector,
+    InstagramPublisher,
+    PublishRequest,
+    TransientPublishError,
+)
 from integrations.trends import GoogleTrendsAdapter, RedditTrendsAdapter, TrendAggregator
 
 
@@ -58,7 +66,12 @@ def test_publisher_uses_retry_backoff_idempotency_and_dry_run() -> None:
         sleeper=sleep_calls.append,
     )
 
-    request = PublishRequest(brief_id="brief-1", media_url="https://cdn/reel.mp4", caption="Caption")
+    request = PublishRequest(
+        brief_id="brief-1",
+        media_url="https://cdn/reel.mp4",
+        caption="Caption",
+        approvals={"editorial": True, "compliance": True, "rights": True},
+    )
     result = publisher.publish(request)
 
     assert result.success is True
@@ -76,6 +89,22 @@ def test_publisher_uses_retry_backoff_idempotency_and_dry_run() -> None:
     assert dry_client.calls == 0
     assert any(entry.event == "publish_dry_run" for entry in dry_run_publisher.audit_log)
 
+
+
+
+def test_publisher_blocks_publish_when_required_approvals_missing() -> None:
+    publisher = InstagramPublisher(client=FakePublisherClient(), dry_run=True)
+    request = PublishRequest(
+        brief_id="brief-2",
+        media_url="https://cdn/reel.mp4",
+        caption="Caption",
+        approvals={"editorial": True},
+    )
+
+    with pytest.raises(GovernanceApprovalError, match="missing required approvals"):
+        publisher.publish(request)
+
+    assert any(entry.event == "publish_blocked_missing_approvals" for entry in publisher.audit_log)
 
 def test_metrics_collector_maps_native_fields_to_canonical_schema() -> None:
     collector = InstagramMetricsCollector()
