@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "variant_result.schema.json",
+  "title": "VariantResult",
+  "type": "object",
+  "required": ["variant_id", "idea_id", "metrics", "observation_window_minutes", "status"],
+  "properties": {
+    "variant_id": { "type": "string" },
+    "idea_id": { "type": "string" },
+    "metrics": {
+      "type": "object",
+      "required": ["views", "saves", "shares", "comments"],
+      "properties": {
+        "views": { "type": "number", "minimum": 0 },
+        "saves": { "type": "number", "minimum": 0 },
+        "shares": { "type": "number", "minimum": 0 },
+        "comments": { "type": "number", "minimum": 0 },
+        "velocity": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "observation_window_minutes": { "type": "integer", "minimum": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["shadow_tested", "promoted", "rejected", "deferred"]
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  },
+  "additionalProperties": true
+}
