@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from random import choice, randint
+from random import randint
 from typing import Iterable, List
 from uuid import uuid4
 
@@ -14,8 +14,18 @@ class CreativityGuardrails:
     mandatory_disclosures: List[str]
 
 
+class TopicPolicyViolationError(ValueError):
+    """Raised when a generated topic violates configured topic policy."""
+
+
 class CreativityEngine:
-    """Generates content concepts with configurable creativity levels."""
+    """Generates content concepts with configurable creativity levels.
+
+    The engine enforces topic guardrails in :meth:`generate_brief` and raises
+    :class:`TopicPolicyViolationError` when a generated topic contains a
+    banned phrase. Callers should catch this domain exception when they want to
+    retry with a different niche/mode or perform a fallback strategy.
+    """
 
     def __init__(self, guardrails: CreativityGuardrails | None = None) -> None:
         self.guardrails = guardrails or CreativityGuardrails(
@@ -30,8 +40,29 @@ class CreativityEngine:
         mode: CreativityMode,
         trend_insights: Iterable[TrendInsight],
     ) -> ContentBrief:
+        """Generate a :class:`ContentBrief` unless guardrails block the topic.
+
+        The generated topic is normalized to lowercase and checked for banned
+        phrases in :attr:`CreativityGuardrails.banned_topics`. A matching
+        phrase results in :class:`TopicPolicyViolationError`.
+        """
         top_patterns = [ins.pattern for ins in list(trend_insights)[:4]]
         topic = self._topic_for_mode(niche, mode)
+        normalized_topic = topic.lower()
+        blocked_phrase = next(
+            (
+                banned_topic
+                for banned_topic in self.guardrails.banned_topics
+                if banned_topic.lower() in normalized_topic
+            ),
+            None,
+        )
+        if blocked_phrase is not None:
+            raise TopicPolicyViolationError(
+                "Generated topic violates creativity guardrails: "
+                f"'{blocked_phrase}' found in topic '{topic}'."
+            )
+
         hook = self._hook_for_mode(mode, top_patterns)
         storyboard = self._storyboard_for_mode(topic, mode)
         caption = self._caption(topic, persona, mode)

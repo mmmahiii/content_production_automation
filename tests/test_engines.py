@@ -6,7 +6,11 @@ import pytest
 
 from instagram_ai_system import CreativityMode
 from instagram_ai_system.config import OptimizationConfig, PageStrategyConfig
-from instagram_ai_system.creativity_engine import CreativityEngine, CreativityGuardrails
+from instagram_ai_system.creativity_engine import (
+    CreativityEngine,
+    CreativityGuardrails,
+    TopicPolicyViolationError,
+)
 from instagram_ai_system.experiment_optimizer import ExperimentOptimizer
 from instagram_ai_system.models import PublishedPostMetrics, ReelSignal, TrendInsight
 from instagram_ai_system.orchestration import InstagramAISystem
@@ -68,7 +72,7 @@ def test_trend_duration_bucket_boundaries() -> None:
 
 def test_creativity_engine_respects_modes_and_guardrails() -> None:
     guardrails = CreativityGuardrails(
-        banned_topics=["x"],
+        banned_topics=["forbidden phrase"],
         mandatory_disclosures=["Disclosure required."],
     )
     engine = CreativityEngine(guardrails=guardrails)
@@ -82,6 +86,30 @@ def test_creativity_engine_respects_modes_and_guardrails() -> None:
     assert "high-risk, high-reward" in full.caption
     assert any("Surprising twist" in scene for scene in full.storyboard)
     assert "#b2bsales" in safe.hashtags
+
+
+def test_creativity_engine_blocks_banned_topic_phrase() -> None:
+    guardrails = CreativityGuardrails(
+        banned_topics=["b2b sales"],
+        mandatory_disclosures=["Disclosure required."],
+    )
+    engine = CreativityEngine(guardrails=guardrails)
+
+    with pytest.raises(TopicPolicyViolationError, match="b2b sales"):
+        engine.generate_brief("B2B Sales", "operators", CreativityMode.SAFE, [])
+
+
+def test_creativity_engine_allows_non_banned_topic() -> None:
+    guardrails = CreativityGuardrails(
+        banned_topics=["hate speech"],
+        mandatory_disclosures=["Disclosure required."],
+    )
+    engine = CreativityEngine(guardrails=guardrails)
+
+    brief = engine.generate_brief("Creator Growth", "operators", CreativityMode.BALANCED, [])
+
+    assert brief.topic
+    assert brief.creativity_mode == CreativityMode.BALANCED
 
 
 def test_experiment_optimizer_exploitation_and_exploration(monkeypatch: pytest.MonkeyPatch) -> None:
