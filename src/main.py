@@ -6,7 +6,8 @@ It defines orchestration sequence, expected inputs/outputs, and extension points
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from time import sleep
+from typing import Callable, Protocol
 
 
 @dataclass
@@ -70,6 +71,45 @@ def run_cycle(
         "published_count": len(publish_results),
         "metrics": metrics,
     }
+
+
+def run_loop(
+    config: RunConfig,
+    trend_source: TrendSource,
+    creative_engine: CreativeEngine,
+    policy_guard: PolicyGuard,
+    publisher: Publisher,
+    analytics: Analytics,
+    sleep_fn: Callable[[int], None] = sleep,
+    max_cycles: int | None = None,
+) -> list[dict]:
+    """Run one or many cycles based on configuration.
+
+    Args:
+        max_cycles: Optional loop guard for tests and controlled runs.
+    """
+
+    results: list[dict] = []
+    while True:
+        results.append(
+            run_cycle(
+                config=config,
+                trend_source=trend_source,
+                creative_engine=creative_engine,
+                policy_guard=policy_guard,
+                publisher=publisher,
+                analytics=analytics,
+            )
+        )
+
+        if config.once:
+            break
+        if max_cycles is not None and len(results) >= max_cycles:
+            break
+
+        sleep_fn(config.interval_seconds)
+
+    return results
 
 
 def main() -> None:
