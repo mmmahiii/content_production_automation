@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "learning_update.schema.json",
+  "title": "LearningUpdate",
+  "type": "object",
+  "required": ["update_id", "cycle_id", "predicted_vs_actual_error", "mode_adjustment", "applied_at"],
+  "properties": {
+    "update_id": { "type": "string" },
+    "cycle_id": { "type": "string" },
+    "predicted_vs_actual_error": { "type": "number", "minimum": 0 },
+    "mode_adjustment": {
+      "type": "object",
+      "required": ["exploration_coefficient_delta"],
+      "properties": {
+        "exploration_coefficient_delta": { "type": "number" },
+        "target_mode": {
+          "type": "string",
+          "enum": ["exploit", "explore", "mutation", "chaos"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "rollback_token": { "type": "string" },
+    "applied_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

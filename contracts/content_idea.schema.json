@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "content_idea.schema.json",
+  "title": "ContentIdea",
+  "type": "object",
+  "required": ["idea_id", "mode", "creative_brief", "virality_score", "variant_budget"],
+  "properties": {
+    "idea_id": { "type": "string", "minLength": 1 },
+    "mode": {
+      "type": "string",
+      "enum": ["exploit", "explore", "mutation", "chaos"]
+    },
+    "creative_brief": {
+      "type": "object",
+      "required": ["tone", "aesthetic", "hook_direction"],
+      "properties": {
+        "tone": { "type": "string" },
+        "aesthetic": { "type": "string" },
+        "hook_direction": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "virality_score": { "type": "number", "minimum": 0 },
+    "variant_budget": { "type": "integer", "minimum": 1 }
+  },
+  "additionalProperties": true
+}

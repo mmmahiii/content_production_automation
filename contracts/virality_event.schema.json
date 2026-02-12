@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "virality_event.schema.json",
+  "title": "ViralityEvent",
+  "type": "object",
+  "required": [
+    "reel_id",
+    "niche",
+    "hook_type",
+    "audio_id",
+    "caption_style",
+    "visual_structure",
+    "posting_time",
+    "growth_curve",
+    "outcome_score"
+  ],
+  "properties": {
+    "reel_id": { "type": "string", "minLength": 1 },
+    "niche": { "type": "string", "minLength": 1 },
+    "hook_type": { "type": "string" },
+    "audio_id": { "type": "string" },
+    "caption_style": { "type": "string" },
+    "visual_structure": { "type": "string" },
+    "posting_time": { "type": "string", "format": "date-time" },
+    "growth_curve": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "outcome_score": { "type": "number", "minimum": 0, "maximum": 100 }
+  },
+  "additionalProperties": true
+}
