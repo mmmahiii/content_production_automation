@@ -117,8 +117,9 @@ def test_creativity_engine_caption_avoids_trailing_space_when_disclosure_empty()
 def test_experiment_optimizer_exploitation_and_exploration(monkeypatch: pytest.MonkeyPatch) -> None:
     optimizer = ExperimentOptimizer(OptimizationConfig(epsilon_exploration=0.0))
 
-    # Unseen candidates are selected first in order.
-    assert optimizer.choose_archetype(["a", "b"]) == "a"
+    # Unseen candidates are selected from available unseen options.
+    monkeypatch.setattr("instagram_ai_system.experiment_optimizer.choice", lambda options: options[-1])
+    assert optimizer.choose_archetype(["a", "b"]) == "b"
 
     metrics_low = PublishedPostMetrics("id-1", views=10, likes=10, comments=0, shares=0, saves=0, avg_watch_time_seconds=1)
     metrics_high = PublishedPostMetrics("id-2", views=100, likes=20, comments=10, shares=10, saves=10, avg_watch_time_seconds=5)
@@ -131,7 +132,8 @@ def test_experiment_optimizer_exploitation_and_exploration(monkeypatch: pytest.M
     # Force exploration branch.
     monkeypatch.setattr("instagram_ai_system.experiment_optimizer.random", lambda: 0.01)
     optimizer.config.epsilon_exploration = 1.0
-    assert optimizer.choose_archetype(["a", "b"]) == "a"
+    monkeypatch.setattr("instagram_ai_system.experiment_optimizer.choice", lambda options: options[-1])
+    assert optimizer.choose_archetype(["a", "b"]) == "b"
 
 
 def test_orchestration_handles_empty_personas_and_unknown_metrics_brief() -> None:
