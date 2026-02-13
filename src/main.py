@@ -17,7 +17,15 @@ from time import sleep
 from typing import Callable, Protocol, TYPE_CHECKING
 from uuid import uuid4
 
+from instagram_ai_system.adaptive_cycle import AdaptiveCycleCoordinator, AdaptiveLoopFlags
+from instagram_ai_system.config import OptimizationConfig
+from instagram_ai_system.experiment_lifecycle_management import ExperimentLifecycleManager
+from instagram_ai_system.experiment_optimizer import ExperimentOptimizer
+from instagram_ai_system.learning_strategy_updates import LearningLoopUpdater, ObjectiveAwareStrategyUpdater
+from instagram_ai_system.mode_controller import ModeController
+from instagram_ai_system.monetization_analytics import MonetizationAnalyst
 from instagram_ai_system.production_loop import PipelineWorker, run_daily_pipeline
+from instagram_ai_system.shadow_testing import ShadowTestEvaluator
 
 if TYPE_CHECKING:
     from instagram_ai_system.storage import Database
@@ -337,12 +345,17 @@ def _run_ops(args: argparse.Namespace, *, logger: logging.Logger) -> dict:
         with db.session_scope() as session:
             run_repo = OperationRunRepository(session)
             if args.ops == "health-check":
-                dependencies = {"database": "ready"}
+                dependencies = {"database": "ready", "repositories": "ready"}
                 status = "ok"
                 try:
                     session.execute(text("SELECT 1"))
+                    from instagram_ai_system.storage import OperationRunRepository, PublishAttemptRepository, PerformanceSnapshotRepository
+                    _ = OperationRunRepository(session)
+                    _ = PublishAttemptRepository(session)
+                    _ = PerformanceSnapshotRepository(session)
                 except Exception:
                     dependencies["database"] = "unavailable"
+                    dependencies["repositories"] = "unavailable"
                     status = "degraded"
                 response = {
                     "status": status,
@@ -524,12 +537,41 @@ def main() -> None:
     publisher = LocalPublisher()
     analytics = LocalAnalytics()
     optimization = OptimizationConfig()
+    def _decision_sink(payload: dict) -> None:
+        db = _create_db()
+        with db.session_scope() as session:
+            from instagram_ai_system.storage import DecisionLogRepository, MonetizationInsightRepository
+
+            updates = payload.get("updates", {})
+            for key, value in updates.items():
+                DecisionLogRepository(session).create(
+                    decision_id=f"{payload['trace_id']}:{key}",
+                    run_id=payload["trace_id"],
+                    decision_type=key,
+                    decision_payload=value,
+                    trace_id=payload["trace_id"],
+                )
+                if key == "monetization_analytics":
+                    MonetizationInsightRepository(session).create(
+                        insight_id=f"{payload['trace_id']}:monetization",
+                        run_id=payload["trace_id"],
+                        insight_payload=value,
+                    )
+
     adaptive_cycle = AdaptiveCycleCoordinator(
         optimization=optimization,
         experiment_lifecycle=ExperimentLifecycleManager(optimizer=ExperimentOptimizer(optimization)),
         learning_loop=LearningLoopUpdater(),
         objective_strategy=ObjectiveAwareStrategyUpdater(),
-        flags=AdaptiveLoopFlags(),
+        mode_controller=ModeController(),
+        shadow_testing=ShadowTestEvaluator(),
+        monetization_analyst=MonetizationAnalyst(),
+        decision_sink=_decision_sink,
+        flags=AdaptiveLoopFlags(
+            enable_mode_controller=True,
+            enable_shadow_testing=True,
+            enable_monetization_analytics=True,
+        ),
     )
 
     while True:

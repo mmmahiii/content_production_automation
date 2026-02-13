@@ -1,3 +1,15 @@
-from .adapters import GoogleTrendsAdapter, NormalizedTrend, RedditTrendsAdapter, TrendAggregator
+from .adapters import (
+    GoogleTrendsAdapter,
+    InstagramHashtagScraperAdapter,
+    NormalizedTrend,
+    RedditTrendsAdapter,
+    TrendAggregator,
+)
 
-__all__ = ["GoogleTrendsAdapter", "NormalizedTrend", "RedditTrendsAdapter", "TrendAggregator"]
+__all__ = [
+    "GoogleTrendsAdapter",
+    "InstagramHashtagScraperAdapter",
+    "NormalizedTrend",
+    "RedditTrendsAdapter",
+    "TrendAggregator",
+]

@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 
 class SchemaValidationError(ValueError):
@@ -41,11 +42,7 @@ def _validate_node(value: Any, schema: dict[str, Any], path: str, errors: list[s
     if isinstance(value, str):
         if "minLength" in schema and len(value) < schema["minLength"]:
             errors.append(f"{path}: string shorter than minLength {schema['minLength']}")
-        if schema.get("format") == "date-time":
-            try:
-                datetime.fromisoformat(value)
-            except ValueError:
-                errors.append(f"{path}: invalid date-time format")
+        _validate_format(value, schema.get("format"), path, errors)
 
     if isinstance(value, (int, float)):
         if "minimum" in schema and value < schema["minimum"]:
@@ -80,6 +77,21 @@ def _validate_node(value: Any, schema: dict[str, Any], path: str, errors: list[s
         for key, prop_schema in properties.items():
             if key in value and isinstance(prop_schema, dict):
                 _validate_node(value[key], prop_schema, f"{path}.{key}", errors)
+
+
+def _validate_format(value: str, fmt: str | None, path: str, errors: list[str]) -> None:
+    if fmt == "date-time":
+        try:
+            datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            errors.append(f"{path}: invalid date-time format")
+    elif fmt == "uri":
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            errors.append(f"{path}: invalid uri format")
+    elif fmt == "email":
+        if "@" not in value or value.startswith("@") or value.endswith("@"):
+            errors.append(f"{path}: invalid email format")
 
 
 def _validate_type(value: Any, expected_type: str, path: str, errors: list[str]) -> None:

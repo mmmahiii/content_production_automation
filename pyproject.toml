@@ -7,6 +7,9 @@ name = "instagram-ai-system"
 version = "0.1.0"
 description = "AI-native system for automated Instagram content production and optimization"
 requires-python = ">=3.10"
+dependencies = [
+    "sqlalchemy>=2.0",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

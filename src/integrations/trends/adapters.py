@@ -65,6 +65,37 @@ class RedditTrendsAdapter:
         )
 
 
+class InstagramHashtagScraperAdapter:
+    """Adapter for hashtag/reels trend signals via scraper-compatible clients."""
+
+    source_name = "instagram_scraper"
+
+    def __init__(self, client: Any) -> None:
+        self.client = client
+
+    def fetch(self) -> Iterable[dict[str, Any]]:
+        return self.client.fetch_trending_hashtags()
+
+    def normalize(self, payload: dict[str, Any]) -> NormalizedTrend:
+        hashtag = str(payload.get("hashtag") or payload.get("tag") or "").strip()
+        post_count = float(payload.get("post_count", 0.0) or 0.0)
+        growth = float(payload.get("growth_24h", payload.get("growth", 0.0)) or 0.0)
+        engagement = float(payload.get("engagement_rate", 0.0) or 0.0)
+        score = min(1.0, (post_count / 500_000.0) + (growth * 0.6) + (engagement * 0.4))
+        return NormalizedTrend(
+            topic=hashtag,
+            source=self.source_name,
+            score=score,
+            momentum=growth,
+            observed_at=_parse_ts(payload.get("observed_at") or payload.get("scraped_at")),
+            metadata={
+                "post_count": int(post_count),
+                "engagement_rate": engagement,
+                "url": payload.get("url"),
+            },
+        )
+
+
 class TrendAggregator:
     """Fetches from multiple sources and emits a normalized list sorted by score."""
 
