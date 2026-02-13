@@ -72,6 +72,7 @@ def test_run_cycle_dry_run_with_policy_rejection() -> None:
     assert result["published_count"] == 0
     assert result["metrics"]["ingestion_errors"] == 0
     assert publisher.calls == [True]
+    assert result["adaptive_updates"] == {}
 
 
 def test_run_loop_once_path_runs_single_cycle_without_sleep() -> None:
@@ -125,3 +126,4 @@ def test_run_cycle_partial_ingestion_metrics_surface_without_breaking_cycle() ->
     assert result["approved_count"] == 1
     assert result["published_count"] == 1
     assert result["metrics"]["ingestion_errors"] == 1
+    assert result["adaptive_updates"] == {}

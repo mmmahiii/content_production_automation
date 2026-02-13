@@ -11,12 +11,16 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime
 from time import sleep
-from typing import Callable, Protocol
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Callable, Protocol
 from uuid import uuid4
+
+from instagram_ai_system.adaptive_cycle import AdaptiveCycleCoordinator, AdaptiveLoopFlags
+from instagram_ai_system.config import OptimizationConfig
+from instagram_ai_system.experiment_lifecycle_management import ExperimentLifecycleManager
+from instagram_ai_system.experiment_optimizer import ExperimentOptimizer
+from instagram_ai_system.learning_strategy_updates import LearningLoopUpdater, ObjectiveAwareStrategyUpdater
 
 
 @dataclass
@@ -154,6 +158,7 @@ def run_cycle(
     publisher: Publisher,
     analytics: Analytics,
     *,
+    adaptive_cycle: AdaptiveCycleCoordinator | None = None,
     logger: logging.Logger | None = None,
 ) -> dict:
     """Execute one orchestration cycle.
@@ -176,6 +181,10 @@ def run_cycle(
         ("validate-candidates", lambda: policy_guard.validate(candidates)),
         ("publish", lambda: publisher.publish(approved, dry_run=(config.mode == "dry-run"))),
         ("collect-analytics", lambda: analytics.collect(publish_results)),
+        (
+            "adaptive-loop-updates",
+            lambda: adaptive_cycle.process_after_analytics(metrics, trace_id=trace_id) if adaptive_cycle else {},
+        ),
     ]
 
     context: dict[str, object] = {}
@@ -205,6 +214,8 @@ def run_cycle(
                 publish_results = value
             elif step_name == "collect-analytics":
                 metrics = value
+            elif step_name == "adaptive-loop-updates":
+                adaptive_updates = value
 
     except Exception as exc:
         _log_event(
@@ -226,6 +237,7 @@ def run_cycle(
         "approved_count": len(approved),
         "published_count": len(publish_results),
         "metrics": metrics,
+        "adaptive_updates": adaptive_updates,
     }
     _log_event(active_logger, level="info", event="cycle.succeeded", trace_id=trace_id, summary=summary)
     return summary
@@ -280,6 +292,7 @@ def run_loop(
     policy_guard: PolicyGuard,
     publisher: Publisher,
     analytics: Analytics,
+    adaptive_cycle: AdaptiveCycleCoordinator | None = None,
     sleep_fn: Callable[[int], None] = sleep,
     max_cycles: int | None = None,
 ) -> list[dict]:
@@ -299,6 +312,7 @@ def run_loop(
                 policy_guard=policy_guard,
                 publisher=publisher,
                 analytics=analytics,
+                adaptive_cycle=adaptive_cycle,
             )
         )
 
@@ -337,6 +351,14 @@ def main() -> None:
     policy_guard = LocalPolicyGuard()
     publisher = LocalPublisher()
     analytics = LocalAnalytics()
+    optimization = OptimizationConfig()
+    adaptive_cycle = AdaptiveCycleCoordinator(
+        optimization=optimization,
+        experiment_lifecycle=ExperimentLifecycleManager(optimizer=ExperimentOptimizer(optimization)),
+        learning_loop=LearningLoopUpdater(),
+        objective_strategy=ObjectiveAwareStrategyUpdater(),
+        flags=AdaptiveLoopFlags(),
+    )
 
     while True:
         summary = run_cycle(
@@ -346,6 +368,7 @@ def main() -> None:
             policy_guard=policy_guard,
             publisher=publisher,
             analytics=analytics,
+            adaptive_cycle=adaptive_cycle,
             logger=logger,
         )
         print(json.dumps(summary, sort_keys=True))
