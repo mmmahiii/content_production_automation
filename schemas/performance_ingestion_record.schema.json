@@ -4,43 +4,123 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "post_id",
-    "observed_at",
-    "window",
-    "impressions",
-    "plays",
-    "avg_watch_time",
-    "likes",
-    "comments",
-    "shares",
-    "saves",
-    "follower_change",
-    "derived_metrics",
-    "kpi_label"
+    "schema_version",
+    "trace_id",
+    "created_at",
+    "payload"
   ],
   "properties": {
-    "post_id": {"type": "string", "minLength": 1},
-    "observed_at": {"type": "string", "format": "date-time"},
-    "window": {"type": "string", "minLength": 1},
-    "impressions": {"type": "integer", "minimum": 0},
-    "plays": {"type": "integer", "minimum": 0},
-    "avg_watch_time": {"type": "number", "minimum": 0},
-    "likes": {"type": "integer", "minimum": 0},
-    "comments": {"type": "integer", "minimum": 0},
-    "shares": {"type": "integer", "minimum": 0},
-    "saves": {"type": "integer", "minimum": 0},
-    "follower_change": {"type": "integer"},
-    "derived_metrics": {
+    "schema_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["engagement_rate", "save_rate", "share_rate", "watch_through_estimate"],
+      "required": [
+        "post_id",
+        "observed_at",
+        "window",
+        "impressions",
+        "plays",
+        "avg_watch_time",
+        "likes",
+        "comments",
+        "shares",
+        "saves",
+        "follower_change",
+        "derived_metrics",
+        "kpi_label"
+      ],
       "properties": {
-        "engagement_rate": {"type": "number", "minimum": 0},
-        "save_rate": {"type": "number", "minimum": 0},
-        "share_rate": {"type": "number", "minimum": 0},
-        "watch_through_estimate": {"type": "number", "minimum": 0, "maximum": 1}
+        "post_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window": {
+          "type": "string",
+          "minLength": 1
+        },
+        "impressions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plays": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "avg_watch_time": {
+          "type": "number",
+          "minimum": 0
+        },
+        "likes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "comments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "shares": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "saves": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "follower_change": {
+          "type": "integer"
+        },
+        "derived_metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "engagement_rate",
+            "save_rate",
+            "share_rate",
+            "watch_through_estimate"
+          ],
+          "properties": {
+            "engagement_rate": {
+              "type": "number",
+              "minimum": 0
+            },
+            "save_rate": {
+              "type": "number",
+              "minimum": 0
+            },
+            "share_rate": {
+              "type": "number",
+              "minimum": 0
+            },
+            "watch_through_estimate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "kpi_label": {
+          "type": "string",
+          "enum": [
+            "success",
+            "needs_iteration"
+          ]
+        }
       }
-    },
-    "kpi_label": {"type": "string", "enum": ["success", "needs_iteration"]}
+    }
   }
 }

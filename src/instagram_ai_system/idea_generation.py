@@ -5,6 +5,7 @@ from difflib import SequenceMatcher
 from typing import Iterable
 from uuid import uuid4
 
+from .contracts_envelope import wrap_payload
 from .schema_validation import validate_payload
 
 _ALLOWED_NICHES = {
@@ -44,8 +45,9 @@ class IdeaGenerationService:
             "idea_count": len(ideas),
             "ideas": ideas,
         }
-        validate_payload(payload, self.schema_path)
-        return payload
+        enveloped_payload = wrap_payload(payload)
+        validate_payload(enveloped_payload, self.schema_path)
+        return enveloped_payload
 
     def _build_idea(self, niche: str, tone: str, sub_topic: str, rank: int) -> dict:
         hooks = self._dedupe_hooks(
