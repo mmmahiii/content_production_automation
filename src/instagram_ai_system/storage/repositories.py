@@ -20,6 +20,9 @@ from .models import (
     PerformanceSnapshotModel,
     PublishAttemptModel,
     OperationRunModel,
+    TrendIngestionModel,
+    DecisionLogModel,
+    MonetizationInsightModel,
 )
 
 
@@ -437,3 +440,59 @@ class NicheStrategyRepository:
     def list_ranked_niches(self) -> list[NicheScoreModel]:
         stmt = select(NicheScoreModel).order_by(NicheScoreModel.success_score.desc())
         return list(self.session.scalars(stmt))
+
+
+class TrendIngestionRepository:
+    def __init__(self, session: Session):
+        self.session = session
+
+    def create(
+        self,
+        *,
+        ingestion_id: str,
+        run_id: str,
+        source: str,
+        topic: str,
+        score: float,
+        momentum: float,
+        payload: dict[str, Any],
+        observed_at: datetime,
+    ) -> TrendIngestionModel:
+        model = TrendIngestionModel(
+            id=ingestion_id,
+            run_id=run_id,
+            source=source,
+            topic=topic,
+            score=score,
+            momentum=momentum,
+            payload=payload,
+            observed_at=observed_at,
+        )
+        self.session.add(model)
+        return model
+
+
+class DecisionLogRepository:
+    def __init__(self, session: Session):
+        self.session = session
+
+    def create(self, *, decision_id: str, run_id: str, decision_type: str, decision_payload: dict[str, Any], trace_id: str) -> DecisionLogModel:
+        model = DecisionLogModel(
+            id=decision_id,
+            run_id=run_id,
+            decision_type=decision_type,
+            decision_payload=decision_payload,
+            trace_id=trace_id,
+        )
+        self.session.add(model)
+        return model
+
+
+class MonetizationInsightRepository:
+    def __init__(self, session: Session):
+        self.session = session
+
+    def create(self, *, insight_id: str, run_id: str, insight_payload: dict[str, Any]) -> MonetizationInsightModel:
+        model = MonetizationInsightModel(id=insight_id, run_id=run_id, insight_payload=insight_payload)
+        self.session.add(model)
+        return model

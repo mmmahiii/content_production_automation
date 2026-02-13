@@ -228,3 +228,36 @@ class LearningSnapshotModel(Base):
     perf_6h: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     perf_24h: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class TrendIngestionModel(Base):
+    __tablename__ = "trend_ingestions"
+
+    id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    topic: Mapped[str] = mapped_column(String(255), nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    momentum: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class DecisionLogModel(Base):
+    __tablename__ = "decision_logs"
+
+    id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    decision_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    decision_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class MonetizationInsightModel(Base):
+    __tablename__ = "monetization_insights"
+
+    id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    insight_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)

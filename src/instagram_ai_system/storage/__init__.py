@@ -9,6 +9,9 @@ from .repositories import (
     PerformanceSnapshotRepository,
     PublishAttemptRepository,
     OperationRunRepository,
+    TrendIngestionRepository,
+    DecisionLogRepository,
+    MonetizationInsightRepository,
 )
 
 __all__ = [
@@ -22,4 +25,7 @@ __all__ = [
     "PerformanceSnapshotRepository",
     "PublishAttemptRepository",
     "OperationRunRepository",
+    "TrendIngestionRepository",
+    "DecisionLogRepository",
+    "MonetizationInsightRepository",
 ]
