@@ -71,18 +71,40 @@ The previously documented example tree below is obsolete and should not be used 
   - `instagram/metrics.py`: Instagram metrics normalization and rollup helpers.
   - `trends/adapters.py`: multi-source trend adapter protocol and normalized trend model.
 
-### 3.2 Deferred modules from system design
+### 3.2 Adaptive modules implemented in current runtime
 
-The system-design target includes modules that are not yet implemented as dedicated runtime components:
+The following target-design adaptive modules now exist as implementation modules in `src/instagram_ai_system`:
 
-- **Mode controller** (dynamic mode policy service)
-- **Shadow testing** (controlled variant rollout + winner promotion)
-- **Monetization analyst** (audience quality and conversion-intent guidance)
-- **Learning loop** (continuous model/prior updates from prediction error)
+- **Mode controller** (`mode_controller.py`)
+  - Boundary: `ModeController.decide(current_mode, explore_coef, inputs)`
+  - Contract: `ModeInputs` -> `ModeDecision`
+  - Limitation: static threshold policy; no learned transition model yet.
+- **Shadow testing** (`shadow_testing.py`)
+  - Boundary: `ShadowTestEvaluator.evaluate(results, min_views=200)`
+  - Contract: `list[ShadowVariantResult]` -> `ShadowWinner`
+  - Limitation: heuristic weighted-score ranking with fixed confidence/min-view cutoffs.
+- **Learning loop + objective strategy updates** (`learning_strategy_updates.py`)
+  - Boundaries: `LearningLoopUpdater.apply(...)`, `ObjectiveAwareStrategyUpdater.apply(...)`
+  - Contract: observed/predicted arrays + KPI delta map mutate `OptimizationConfig`, returning structured updates.
+  - Limitation: in-process config mutation only; no persisted model snapshot rollback controller.
+- **Monetization analytics** (`monetization_analytics.py`)
+  - Boundary: `MonetizationAnalyst.evaluate(metrics, weights, intent_baseline)`
+  - Contract: metrics dict -> `MonetizationInsight`
+  - Limitation: uses aggregate heuristics; no cohort-segmented recommendation policy yet.
 
-These remain planned capabilities and should be treated as roadmap items, not current dependencies.
+Implementation evidence: `tests/test_adaptive_loops.py`, `tests/test_priority3_expansion.py`.
 
-### 3.3 Explicit interface boundaries and contracts currently in use
+### 3.3 Still deferred target-state capabilities
+
+These remain roadmap items and should not be treated as current dependencies:
+
+- Standalone ingestion pipeline service (polling/compaction/staleness/DLQ control plane).
+- Standalone intelligence-engine serving runtime with confidence gating + failover orchestration.
+- Asynchronous creative-orchestrator worker fabric and failed-prompt-family quarantine automation.
+- Full experiment-and-post service infrastructure for queue rebalancing, auth-failure cancellation, and cohort routing at platform scale.
+- End-to-end model snapshot registry and rollback automation for adaptive loops.
+
+### 3.4 Explicit interface boundaries and contracts currently in use
 
 - **Workflow-stage boundary (`src/main.py`)**
   - Contract is protocol-based and intentionally narrow:
