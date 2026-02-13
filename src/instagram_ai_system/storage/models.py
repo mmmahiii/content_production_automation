@@ -181,3 +181,50 @@ class OperationRunModel(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+
+class PipelineRunModel(Base):
+    __tablename__ = "pipeline_runs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued", index=True)
+    topic: Mapped[str] = mapped_column(String(255), nullable=False, default="general")
+    current_stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    trend_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    script_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    render_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    publish_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    metrics_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class PipelineStageCheckpointModel(Base):
+    __tablename__ = "pipeline_stage_checkpoints"
+
+    id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    stage_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="started")
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class LearningSnapshotModel(Base):
+    __tablename__ = "learning_snapshots"
+
+    id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    trend_features: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    script_features: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    template_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    perf_1h: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    perf_6h: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    perf_24h: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)

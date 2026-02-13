@@ -24,6 +24,7 @@ src/
     experiment_optimizer.py
     performance_ingestion.py
     orchestration.py
+    production_loop.py
     storage/
       database.py
       models.py
@@ -62,6 +63,7 @@ The previously documented example tree below is obsolete and should not be used 
   - `experiment_optimizer.py`: exploration/exploitation logic for archetype optimization.
   - `performance_ingestion.py`: ingests and scores published-post performance.
   - `orchestration.py`: composes trend, creativity, and optimizer services into a creation cycle.
+  - `production_loop.py`: end-to-end daily worker slice (trend -> creative -> render -> publish -> metrics -> learning snapshot) with stage checkpointing and idempotent resume semantics.
   - `storage/`: database session management plus repositories/models for persisted experiment state.
 
 - **Integration package (`src/integrations`)**

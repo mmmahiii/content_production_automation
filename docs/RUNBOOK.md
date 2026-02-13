@@ -36,8 +36,11 @@ Perform at the start of each day (or shift):
 # Inspect worker/scheduler health
 uv run python -m src.main --ops health-check
 
-# Rebuild today queue if empty or below threshold
-uv run python -m src.main --ops refill-queue --window-hours 24
+# Enqueue one production run (daily scheduler target)
+uv run python -m src.main --ops enqueue-daily --topic "ai productivity"
+
+# Process one queued run end-to-end (worker target)
+uv run python -m src.main --ops run-worker --topic "ai productivity"
 
 # Retry failed publishing tasks
 uv run python -m src.main --ops replay-failed --since-hours 24
