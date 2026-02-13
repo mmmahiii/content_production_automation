@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 jsonschema = pytest.importorskip("jsonschema")
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,6 +44,117 @@ VALID_PAYLOADS: dict[str, dict] = {
         "posting_time": "2026-01-01T00:00:00Z",
         "growth_curve": {"h1": 100, "h2": 220},
         "outcome_score": 92,
+    },
+    "contracts/idea_generation.schema.json": {
+        "schema_version": "1.0",
+        "trace_id": "trace-idea-1",
+        "created_at": "2026-01-01T00:00:00Z",
+        "payload": {
+            "request_id": "req-1",
+            "niche": "ai-marketing",
+            "tone_preference": "contrarian",
+            "idea_count": 10,
+            "ideas": [
+                {
+                    "idea_id": f"idea-{idx}",
+                    "rank": idx,
+                    "title": f"Idea title {idx}",
+                    "premise": f"Premise for idea {idx}",
+                    "audience_pain_or_desire": "Need repeatable short-form growth",
+                    "hook_options": [f"Hook {idx}-a", f"Hook {idx}-b", f"Hook {idx}-c"],
+                    "thumbnail_text_options": [f"Thumb {idx}-a", f"Thumb {idx}-b"],
+                    "caption_direction": "Explain framework + CTA",
+                }
+                for idx in range(1, 11)
+            ],
+        },
+    },
+    "contracts/script_package.schema.json": {
+        "schema_version": "1.0",
+        "trace_id": "trace-script-1",
+        "created_at": "2026-01-01T00:00:00Z",
+        "payload": {
+            "script_id": "script-1",
+            "source_idea_id": "idea-1",
+            "duration_bucket_seconds": 30,
+            "estimated_total_duration_seconds": 29.5,
+            "segments": [
+                {
+                    "segment_type": "hook",
+                    "start_second": 0,
+                    "end_second": 4,
+                    "voiceover": "You are one workflow away from doubling content output.",
+                    "on_screen_text": "Double output with one workflow",
+                },
+                {
+                    "segment_type": "body",
+                    "start_second": 4,
+                    "end_second": 22,
+                    "voiceover": "Use this three-step system: collect signals, generate ideas, ship variants.",
+                    "on_screen_text": "3-step system: signals -> ideas -> variants",
+                },
+                {
+                    "segment_type": "cta",
+                    "start_second": 22,
+                    "end_second": 29.5,
+                    "voiceover": "Save this and follow for daily creator systems.",
+                    "on_screen_text": "Save + follow for daily systems",
+                },
+            ],
+            "caption_variants": {
+                "short": "3-step workflow that keeps your reel pipeline full.",
+                "long": "A practical workflow to turn trend signals into scripts you can publish this week.",
+            },
+            "hashtags": ["#ai", "#creator", "#instagramgrowth", "#contentstrategy", "#reels"],
+        },
+    },
+    "contracts/scheduling_metadata.schema.json": {
+        "schema_version": "1.0",
+        "trace_id": "trace-schedule-1",
+        "created_at": "2026-01-01T00:00:00Z",
+        "payload": {
+            "items": [
+                {
+                    "schedule_id": "sch-1",
+                    "script_id": "script-1",
+                    "publish_datetime": "2026-01-02T15:00:00Z",
+                    "timezone": "UTC",
+                    "slot_label": "afternoon",
+                    "kpi_objective": "reach",
+                    "platform_metadata": {
+                        "caption": "Ship one repeatable workflow per day.",
+                        "hashtags": ["#ai", "#creator", "#instagramgrowth", "#contentstrategy", "#reels"],
+                        "thumbnail_text": "Workflow that scales",
+                        "hook_text": "Most creators skip this system",
+                    },
+                }
+            ]
+        },
+    },
+    "schemas/performance_ingestion_record.schema.json": {
+        "schema_version": "1.0",
+        "trace_id": "trace-perf-1",
+        "created_at": "2026-01-01T00:00:00Z",
+        "payload": {
+            "post_id": "post-1",
+            "observed_at": "2026-01-01T01:00:00Z",
+            "window": "60m",
+            "impressions": 1500,
+            "plays": 1250,
+            "avg_watch_time": 8.7,
+            "likes": 90,
+            "comments": 12,
+            "shares": 25,
+            "saves": 45,
+            "follower_change": 18,
+            "derived_metrics": {
+                "engagement_rate": 0.115,
+                "save_rate": 0.03,
+                "share_rate": 0.016,
+                "watch_through_estimate": 0.41,
+            },
+            "kpi_label": "success",
+        },
     },
     "schemas/content_candidate.schema.json": {
         "id": "cand-1",
@@ -116,7 +227,7 @@ VALID_PAYLOADS: dict[str, dict] = {
 @pytest.mark.parametrize("schema_path", sorted(VALID_PAYLOADS))
 def test_valid_payloads_match_schema_contracts(schema_path: str) -> None:
     schema = json.loads((ROOT / schema_path).read_text())
-    validator = Draft202012Validator(schema)
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
     errors = list(validator.iter_errors(VALID_PAYLOADS[schema_path]))
     assert errors == []
 
@@ -142,6 +253,32 @@ def test_invalid_payloads_are_rejected(schema_path: str, mutator) -> None:
     payload = json.loads(json.dumps(VALID_PAYLOADS[schema_path]))
     mutator(payload)
 
-    validator = Draft202012Validator(schema)
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
     errors = list(validator.iter_errors(payload))
     assert errors, f"Expected validation error for {schema_path}"
+
+
+@pytest.mark.parametrize(
+    ("schema_path", "mutator", "expected_field"),
+    [
+        ("contracts/idea_generation.schema.json", lambda d: d.pop("schema_version"), "schema_version"),
+        ("contracts/script_package.schema.json", lambda d: d.pop("trace_id"), "trace_id"),
+        (
+            "contracts/scheduling_metadata.schema.json",
+            lambda d: d.__setitem__("created_at", "2026/01/01 00:00:00"),
+            "created_at",
+        ),
+        ("schemas/performance_ingestion_record.schema.json", lambda d: d.pop("payload"), "payload"),
+    ],
+)
+def test_envelope_validation_errors_are_field_specific(schema_path: str, mutator, expected_field: str) -> None:
+    schema = json.loads((ROOT / schema_path).read_text())
+    payload = json.loads(json.dumps(VALID_PAYLOADS[schema_path]))
+    mutator(payload)
+
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    errors = list(validator.iter_errors(payload))
+
+    assert errors, f"Expected envelope validation error for {schema_path}"
+    messages = [error.message for error in errors]
+    assert any(expected_field in message for message in messages)
