@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/niche_score_breakdown.schema.json",
+  "title": "NicheScoreBreakdown",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nicheName",
+    "demand",
+    "lowSaturation",
+    "feasibility",
+    "differentiationSpace",
+    "monetization",
+    "successScore"
+  ],
+  "properties": {
+    "nicheName": {"type": "string", "minLength": 1},
+    "demand": {"type": "number", "minimum": 0, "maximum": 1},
+    "lowSaturation": {"type": "number", "minimum": 0, "maximum": 1},
+    "feasibility": {"type": "number", "minimum": 0, "maximum": 1},
+    "differentiationSpace": {"type": "number", "minimum": 0, "maximum": 1},
+    "monetization": {"type": "number", "minimum": 0, "maximum": 1},
+    "successScore": {"type": "number", "minimum": 0, "maximum": 1},
+    "topRisks": {"type": "array", "items": {"type": "string"}, "default": []}
+  }
+}

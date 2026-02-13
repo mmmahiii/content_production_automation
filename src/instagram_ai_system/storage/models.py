@@ -89,6 +89,82 @@ class ExperimentArmStateModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+class NicheCandidateModel(Base):
+    __tablename__ = "niche_candidates"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False, default="1.0")
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    niche_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    target_audience: Mapped[str] = mapped_column(String(255), nullable=False)
+    candidate_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="generated")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class NicheScoreModel(Base):
+    __tablename__ = "niche_scores"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False, default="1.0")
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    niche_candidate_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    score_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    success_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, index=True)
+    model_version: Mapped[str] = mapped_column(String(32), nullable=False, default="rules-v1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class AccountExperimentModel(Base):
+    __tablename__ = "account_experiments"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False, default="1.0")
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    niche_candidate_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    account_handle: Mapped[str] = mapped_column(String(128), nullable=False)
+    stage: Mapped[str] = mapped_column(String(32), nullable=False, default="stage_1")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+    plan_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class ExperimentPostModel(Base):
+    __tablename__ = "experiment_posts"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False, default="1.0")
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    account_experiment_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    content_ref: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class ExperimentMetricModel(Base):
+    __tablename__ = "experiment_metrics"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False, default="1.0")
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    experiment_post_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    metric_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class ModelVersionModel(Base):
+    __tablename__ = "model_versions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False, default="1.0")
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    model_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    version_tag: Mapped[str] = mapped_column(String(64), nullable=False)
+    parameters_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
 class OperationRunModel(Base):
     __tablename__ = "operation_runs"
 

@@ -8,9 +8,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .models import (
+    AccountExperimentModel,
     BriefAssetModel,
     ContentPlanModel,
     ExperimentArmStateModel,
+    ExperimentMetricModel,
+    ExperimentPostModel,
+    ModelVersionModel,
+    NicheCandidateModel,
+    NicheScoreModel,
     PerformanceSnapshotModel,
     PublishAttemptModel,
     OperationRunModel,
@@ -286,3 +292,148 @@ class ExperimentStateRepository:
             model.reward_sum = state.reward_sum
             model.schema_version = schema_version
             model.trace_id = trace_id
+
+
+class NicheStrategyRepository:
+    def __init__(self, session: Session):
+        self.session = session
+
+    def create_niche_candidate(
+        self,
+        *,
+        candidate_id: str,
+        niche_name: str,
+        target_audience: str,
+        candidate_payload: dict[str, Any],
+        status: str,
+        schema_version: str,
+        trace_id: str,
+    ) -> NicheCandidateModel:
+        model = NicheCandidateModel(
+            id=candidate_id,
+            niche_name=niche_name,
+            target_audience=target_audience,
+            candidate_payload=candidate_payload,
+            status=status,
+            schema_version=schema_version,
+            trace_id=trace_id,
+        )
+        self.session.add(model)
+        return model
+
+    def record_niche_score(
+        self,
+        *,
+        score_id: str,
+        niche_candidate_id: str,
+        score_payload: dict[str, Any],
+        success_score: float,
+        model_version: str,
+        schema_version: str,
+        trace_id: str,
+    ) -> NicheScoreModel:
+        model = NicheScoreModel(
+            id=score_id,
+            niche_candidate_id=niche_candidate_id,
+            score_payload=score_payload,
+            success_score=success_score,
+            model_version=model_version,
+            schema_version=schema_version,
+            trace_id=trace_id,
+        )
+        self.session.add(model)
+        return model
+
+    def create_account_experiment(
+        self,
+        *,
+        experiment_id: str,
+        niche_candidate_id: str,
+        account_handle: str,
+        stage: str,
+        status: str,
+        plan_payload: dict[str, Any],
+        schema_version: str,
+        trace_id: str,
+    ) -> AccountExperimentModel:
+        model = AccountExperimentModel(
+            id=experiment_id,
+            niche_candidate_id=niche_candidate_id,
+            account_handle=account_handle,
+            stage=stage,
+            status=status,
+            plan_payload=plan_payload,
+            schema_version=schema_version,
+            trace_id=trace_id,
+        )
+        self.session.add(model)
+        return model
+
+    def create_experiment_post(
+        self,
+        *,
+        post_id: str,
+        account_experiment_id: str,
+        content_ref: str,
+        status: str,
+        schema_version: str,
+        trace_id: str,
+        published_at: datetime | None = None,
+    ) -> ExperimentPostModel:
+        model = ExperimentPostModel(
+            id=post_id,
+            account_experiment_id=account_experiment_id,
+            content_ref=content_ref,
+            status=status,
+            schema_version=schema_version,
+            trace_id=trace_id,
+            published_at=published_at,
+        )
+        self.session.add(model)
+        return model
+
+    def record_experiment_metric(
+        self,
+        *,
+        metric_id: str,
+        experiment_post_id: str,
+        metric_payload: dict[str, Any],
+        captured_at: datetime,
+        schema_version: str,
+        trace_id: str,
+    ) -> ExperimentMetricModel:
+        model = ExperimentMetricModel(
+            id=metric_id,
+            experiment_post_id=experiment_post_id,
+            metric_payload=metric_payload,
+            captured_at=captured_at,
+            schema_version=schema_version,
+            trace_id=trace_id,
+        )
+        self.session.add(model)
+        return model
+
+    def record_model_version(
+        self,
+        *,
+        version_id: str,
+        model_name: str,
+        version_tag: str,
+        parameters_payload: dict[str, Any],
+        schema_version: str,
+        trace_id: str,
+    ) -> ModelVersionModel:
+        model = ModelVersionModel(
+            id=version_id,
+            model_name=model_name,
+            version_tag=version_tag,
+            parameters_payload=parameters_payload,
+            schema_version=schema_version,
+            trace_id=trace_id,
+        )
+        self.session.add(model)
+        return model
+
+    def list_ranked_niches(self) -> list[NicheScoreModel]:
+        stmt = select(NicheScoreModel).order_by(NicheScoreModel.success_score.desc())
+        return list(self.session.scalars(stmt))
