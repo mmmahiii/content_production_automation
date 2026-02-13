@@ -310,7 +310,7 @@ def _run_ops(args: argparse.Namespace, *, logger: logging.Logger) -> dict:
         "period": args.period,
     }
     db = None
-    run_id = str(uuid4())
+    operation_run_id = str(uuid4())
 
     _log_event(logger, level="info", event="ops.started", trace_id=trace_id, operation=args.ops)
 
@@ -332,7 +332,7 @@ def _run_ops(args: argparse.Namespace, *, logger: logging.Logger) -> dict:
     with db.session_scope() as session:
         run_repo = OperationRunRepository(session)
         run_repo.create_run(
-            run_id=run_id,
+            run_id=operation_run_id,
             operation_name=args.ops,
             params_payload=params_payload,
             status="running",
@@ -437,12 +437,20 @@ def _run_ops(args: argparse.Namespace, *, logger: logging.Logger) -> dict:
                 }
             elif args.ops == "enqueue-daily":
                 worker = PipelineWorker()
-                run_id = worker.enqueue(topic=args.topic)
-                response = {"status": "queued", "run_id": run_id, "topic": args.topic or "general"}
+                pipeline_run_id = worker.enqueue(topic=args.topic)
+                response = {
+                    "status": "queued",
+                    "run_id": pipeline_run_id,
+                    "pipeline_run_id": pipeline_run_id,
+                    "topic": args.topic or "general",
+                }
             elif args.ops == "run-worker":
                 worker = PipelineWorker()
-                run_id = worker.enqueue(topic=args.topic)
-                response = worker.process(run_id)
+                pipeline_run_id = worker.enqueue(topic=args.topic)
+                response = {
+                    **worker.process(pipeline_run_id),
+                    "pipeline_run_id": pipeline_run_id,
+                }
             elif args.ops == "kpi-report":
                 period_hours = 24 if args.period == "daily" else 24 * 7
                 since = datetime.now(timezone.utc) - timedelta(hours=period_hours)
@@ -456,7 +464,7 @@ def _run_ops(args: argparse.Namespace, *, logger: logging.Logger) -> dict:
                 raise ValueError(f"Unsupported operation: {args.ops}")
 
             run_repo.complete_run(
-                run_id=run_id,
+                run_id=operation_run_id,
                 status="succeeded",
                 result_payload=response,
                 completed_at=datetime.now(timezone.utc),
@@ -467,7 +475,7 @@ def _run_ops(args: argparse.Namespace, *, logger: logging.Logger) -> dict:
     except Exception as exc:
         with db.session_scope() as session:
             OperationRunRepository(session).complete_run(
-                run_id=run_id,
+                run_id=operation_run_id,
                 status="failed",
                 result_payload={"error": str(exc)},
                 completed_at=datetime.now(timezone.utc),
