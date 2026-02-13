@@ -165,6 +165,7 @@ def run_cycle(
     publisher: Publisher,
     analytics: Analytics,
     *,
+    adaptive_cycle: AdaptiveCycleCoordinator | None = None,
     logger: logging.Logger | None = None,
 ) -> dict:
     active_logger = logger or _setup_logger()
@@ -177,6 +178,10 @@ def run_cycle(
         ("validate-candidates", lambda: policy_guard.validate(candidates)),
         ("publish", lambda: publisher.publish(approved, dry_run=(config.mode == "dry-run"))),
         ("collect-analytics", lambda: analytics.collect(publish_results)),
+        (
+            "adaptive-loop-updates",
+            lambda: adaptive_cycle.process_after_analytics(metrics, trace_id=trace_id) if adaptive_cycle else {},
+        ),
     ]
 
     try:
@@ -196,6 +201,8 @@ def run_cycle(
                 publish_results = value
             elif step_name == "collect-analytics":
                 metrics = value
+            elif step_name == "adaptive-loop-updates":
+                adaptive_updates = value
 
     except Exception as exc:
         _log_event(active_logger, level="error", event="step.failed", trace_id=trace_id, step=step_name, error=str(exc))
@@ -210,6 +217,7 @@ def run_cycle(
         "approved_count": len(approved),
         "published_count": len(publish_results),
         "metrics": metrics,
+        "adaptive_updates": adaptive_updates,
     }
     _log_event(active_logger, level="info", event="cycle.succeeded", trace_id=trace_id, summary=summary)
     return summary
@@ -453,6 +461,7 @@ def run_loop(
     policy_guard: PolicyGuard,
     publisher: Publisher,
     analytics: Analytics,
+    adaptive_cycle: AdaptiveCycleCoordinator | None = None,
     sleep_fn: Callable[[int], None] = sleep,
     max_cycles: int | None = None,
 ) -> list[dict]:
@@ -466,6 +475,7 @@ def run_loop(
                 policy_guard=policy_guard,
                 publisher=publisher,
                 analytics=analytics,
+                adaptive_cycle=adaptive_cycle,
             )
         )
 
@@ -499,6 +509,14 @@ def main() -> None:
     policy_guard = LocalPolicyGuard()
     publisher = LocalPublisher()
     analytics = LocalAnalytics()
+    optimization = OptimizationConfig()
+    adaptive_cycle = AdaptiveCycleCoordinator(
+        optimization=optimization,
+        experiment_lifecycle=ExperimentLifecycleManager(optimizer=ExperimentOptimizer(optimization)),
+        learning_loop=LearningLoopUpdater(),
+        objective_strategy=ObjectiveAwareStrategyUpdater(),
+        flags=AdaptiveLoopFlags(),
+    )
 
     while True:
         summary = run_cycle(
@@ -508,6 +526,7 @@ def main() -> None:
             policy_guard=policy_guard,
             publisher=publisher,
             analytics=analytics,
+            adaptive_cycle=adaptive_cycle,
             logger=logger,
         )
         print(json.dumps(summary, sort_keys=True))

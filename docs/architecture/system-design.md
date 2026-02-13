@@ -76,3 +76,33 @@ Current interface contracts are:
 - **Idempotency:** ingestion and publishing jobs use deterministic keys to prevent duplicates.
 - **Auditability:** all strategy decisions and model version references are persisted.
 - **Safety:** disallowlist filters apply before generation and before posting.
+
+## Adaptive Loop Feature Flags and Rollout Gates
+
+To safely introduce post-analytics adaptation loops, keep each loop behind an independent gate that can be enabled per environment.
+
+### Feature flags
+
+- `enable_experiment_lifecycle`
+  - Enables variant lifecycle automation (winner promotion + archive marker writes).
+  - Keep disabled until experiment arm-state persistence is verified in staging.
+- `enable_learning_loop`
+  - Enables observed-vs-predicted error updates that tune exploration pressure (`epsilon_exploration`).
+  - Keep disabled during baseline measurement windows to avoid moving-target evaluations.
+- `enable_objective_strategy`
+  - Enables objective-aware strategy updates that rebalance KPI reward weights from KPI deltas.
+  - Roll out only after KPI delta data quality checks pass.
+
+### Rollout gates
+
+1. **Shadow gate:** Run loop calculations and logs only (no state mutation) for at least 7 days.
+2. **Canary gate:** Enable each loop for a limited objective segment (for example 10% of campaigns).
+3. **Stability gate:** Require no anomaly alerts and bounded parameter changes for 3 consecutive days.
+4. **Scale gate:** Expand to full traffic, keeping a hard disable switch for immediate rollback.
+
+### Operational guardrails
+
+- Keep lifecycle winner promotion behind minimum sample thresholds.
+- Bound learning-loop exploration changes with floor/ceiling limits.
+- Normalize objective weight updates after each adjustment to preserve a stable reward function.
+- Emit traceable update payloads in cycle summaries for observability and auditability.
