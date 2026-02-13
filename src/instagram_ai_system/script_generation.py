@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import uuid4
 
-from .contracts_envelope import extract_payload, wrap_payload
+from .contracts_envelope import coerce_to_envelope, extract_payload
 from .schema_validation import validate_payload
 
 _DURATION_BUCKETS = {15: (12, 18), 30: (24, 36), 45: (36, 54)}
@@ -74,6 +74,6 @@ class ScriptGenerationService:
         min_duration, max_duration = _DURATION_BUCKETS[request.duration_seconds]
         if not (min_duration <= payload["estimated_total_duration_seconds"] <= max_duration):
             raise ValueError("Generated script violates duration tolerance.")
-        enveloped_payload = wrap_payload(payload)
+        enveloped_payload = coerce_to_envelope(payload)
         validate_payload(enveloped_payload, self.schema_path)
         return enveloped_payload
