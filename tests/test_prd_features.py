@@ -16,18 +16,18 @@ def test_idea_script_schedule_pipeline() -> None:
             count=10,
         )
     )
-    assert ideas_payload["idea_count"] == 10
+    assert ideas_payload["payload"]["idea_count"] == 10
 
     script_service = ScriptGenerationService()
     script = script_service.generate(
         ScriptGenerationRequest(
-            idea=ideas_payload["ideas"][0],
+            idea={"payload": ideas_payload["payload"]["ideas"][0]},
             duration_seconds=30,
             tone="educational",
             cta_preference="Comment PLAN for the checklist",
         )
     )
-    assert script["source_idea_id"] == ideas_payload["ideas"][0]["idea_id"]
+    assert script["payload"]["source_idea_id"] == ideas_payload["payload"]["ideas"][0]["idea_id"]
 
     scheduler = SchedulingMetadataService()
     now = datetime.now(timezone.utc)
@@ -40,7 +40,7 @@ def test_idea_script_schedule_pipeline() -> None:
             cadence="daily",
         )
     )
-    assert len(schedule["items"]) == 7
+    assert len(schedule["payload"]["items"]) == 7
 
 
 def test_performance_ingestion_csv_and_json() -> None:
@@ -50,7 +50,7 @@ post-1,2026-01-01T00:00:00+00:00,24h,1000,500,18.5,45,3,20,25,5
 post-2,,24h,1000,0,0,2,1,0,0,0
 """
     csv_result = service.ingest_csv(csv_payload)
-    assert csv_result.summary == {"processed": 2, "succeeded": 1, "failed": 1}
+    assert csv_result.summary["payload"] == {"processed": 2, "succeeded": 1, "failed": 1}
     assert csv_result.errors[0]["row"] == 2
 
     json_result = service.ingest_json(
@@ -70,7 +70,7 @@ post-2,,24h,1000,0,0,2,1,0,0,0
             }
         ]
     )
-    assert json_result.summary == {"processed": 1, "succeeded": 1, "failed": 0}
+    assert json_result.summary["payload"] == {"processed": 1, "succeeded": 1, "failed": 0}
     queried = service.query(
         post_id="post-1",
         start=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),

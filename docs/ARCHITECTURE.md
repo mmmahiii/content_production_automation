@@ -2,485 +2,113 @@
 
 ## 1) Purpose and Scope
 
-This document defines the initial architecture for an end-to-end content production system that:
+This document describes the **implementation-aligned architecture** for the current codebase and maps it to the longer-term target design.
 
-1. Ingests trend signals.
-2. Generates content concepts.
-3. Builds an asset package.
-4. Queues publishable content.
-5. Collects performance feedback.
-6. Updates model prompts based on outcomes.
+## 2) Implementation-Aligned Repository Layout (Current)
 
-The goal is **independent module development** via explicit interface contracts.
-
----
-
-## 2) Initial Repository Layout
+> ✅ This is the authoritative module layout for onboarding and implementation.
 
 ```text
 src/
-  content_generation/
-  trend_analysis/
-  scoring/
-  orchestration/
-  storage/
+  main.py
+  instagram_ai_system/
+    config.py
+    models.py
+    trend_intelligence.py
+    creativity_engine.py
+    content_factory.py
+    idea_generation.py
+    script_generation.py
+    schema_validation.py
+    scheduling_metadata.py
+    experiment_optimizer.py
+    performance_ingestion.py
+    orchestration.py
+    storage/
+      database.py
+      models.py
+      repositories.py
   integrations/
     instagram/
-docs/
-  ARCHITECTURE.md
+      publisher.py
+      metrics.py
+    trends/
+      adapters.py
 ```
 
-### Module Responsibilities
+### Outdated structure note
 
-- `src/trend_analysis/`: Collect and normalize trend signals from multiple sources.
-- `src/content_generation/`: Generate concepts and content briefs from trend signals.
-- `src/scoring/`: Score concepts/assets for relevance, quality, and risk.
-- `src/orchestration/`: Coordinate workflow transitions and retries.
-- `src/storage/`: Persist canonical objects and audit history.
-- `src/integrations/instagram/`: Platform-specific publishing and performance sync.
-
----
-
-## 3) End-to-End Data Flow
+The previously documented example tree below is obsolete and should not be used for implementation planning:
 
 ```text
-Trend Ingestion
-  -> Concept Generation
-    -> Asset Package
-      -> Publish Queue
-        -> Performance Feedback
-          -> Model Prompt Update
+(OUTDATED) src/content_generation, src/trend_analysis, src/scoring, src/orchestration
 ```
 
-### Step-by-Step
+## 3) Current State vs Target State
 
-1. **Trend ingestion** (`trend_analysis`)
-   - Pull signals from APIs/feeds (hashtags, topics, competitor activity).
-   - Normalize into `TrendSignal[]`.
-   - Persist raw + normalized records.
+### 3.1 Current implemented modules and responsibilities
 
-2. **Concept generation** (`content_generation`)
-   - Consume high-confidence trend signals.
-   - Produce `ContentConcept[]` with rationale and audience fit.
+- **Entrypoint orchestration (`src/main.py`)**
+  - Defines runtime cycle contract and runbook ops commands.
+  - Uses protocol interfaces for trend source, generation, policy validation, publishing, and analytics.
+  - Ships local adapters for deterministic dry-run/local execution.
 
-3. **Asset package assembly** (`content_generation` + `scoring`)
-   - Build package candidates (caption, visual brief, CTA, hashtags).
-   - Score packages for brand alignment, safety, and expected performance.
-   - Output `AssetPackage` + `ScoreCard`.
+- **Core domain package (`src/instagram_ai_system`)**
+  - `trend_intelligence.py`: extracts ranked trend insights from observed reel signals.
+  - `creativity_engine.py` + `content_factory.py`: generate policy-aware content briefs and batch variants.
+  - `idea_generation.py` / `script_generation.py`: structured generation services for ideas/scripts.
+  - `schema_validation.py`: validates generated artifacts against canonical expectations.
+  - `scheduling_metadata.py`: derives publish timing metadata.
+  - `experiment_optimizer.py`: exploration/exploitation logic for archetype optimization.
+  - `performance_ingestion.py`: ingests and scores published-post performance.
+  - `orchestration.py`: composes trend, creativity, and optimizer services into a creation cycle.
+  - `storage/`: database session management plus repositories/models for persisted experiment state.
 
-4. **Publish queue** (`orchestration` + `integrations/instagram`)
-   - Validate scheduling constraints and channel rules.
-   - Enqueue `PublishJob`.
-   - Execute publish action and track status transitions.
+- **Integration package (`src/integrations`)**
+  - `instagram/publisher.py`: publish request/result contract, governance approval gate, idempotency, retries, audit entries.
+  - `instagram/metrics.py`: Instagram metrics normalization and rollup helpers.
+  - `trends/adapters.py`: multi-source trend adapter protocol and normalized trend model.
 
-5. **Performance feedback** (`integrations/instagram` + `trend_analysis`)
-   - Fetch post-performance metrics (reach, saves, watch time, CTR).
-   - Link metrics to originating concept and package.
-   - Produce `PerformanceFeedback`.
+### 3.2 Deferred modules from system design
 
-6. **Model prompt update** (`scoring` + `content_generation`)
-   - Aggregate outcomes and detect winning patterns.
-   - Generate prompt deltas and versioned `PromptProfile` updates.
-   - Store prompt changes with explainability metadata.
+The system-design target includes modules that are not yet implemented as dedicated runtime components:
 
----
+- **Mode controller** (dynamic mode policy service)
+- **Shadow testing** (controlled variant rollout + winner promotion)
+- **Monetization analyst** (audience quality and conversion-intent guidance)
+- **Learning loop** (continuous model/prior updates from prediction error)
 
-## 4) System Boundaries and Interaction Style
+These remain planned capabilities and should be treated as roadmap items, not current dependencies.
 
-- Modules communicate through **typed contracts** (JSON-serializable payloads).
-- Recommended interaction patterns:
-  - Sync for deterministic transforms (e.g., scoring a single package).
-  - Async/event-driven for workflow steps (e.g., publish + feedback).
-- Every contract includes:
-  - `schema_version`
-  - `trace_id`
-  - `created_at`
+### 3.3 Explicit interface boundaries and contracts currently in use
 
----
+- **Workflow-stage boundary (`src/main.py`)**
+  - Contract is protocol-based and intentionally narrow:
+    - `TrendSource.fetch_signals(topic) -> dict`
+    - `CreativeEngine.generate_candidates(signals) -> list[dict]`
+    - `PolicyGuard.validate(candidates) -> list[dict]`
+    - `Publisher.publish(approved, dry_run) -> list[dict]`
+    - `Analytics.collect(published) -> dict`
+  - Each run emits structured log events with `trace_id`.
 
-## 5) Interface Contracts (I/O Schemas)
+- **Domain orchestration boundary (`src/instagram_ai_system/orchestration.py`)**
+  - `InstagramAISystem.run_creation_cycle(observed_reels)` returns `CycleOutput`.
+  - `register_post_metrics(metrics)` feeds optimizer reward updates and persistence.
+  - Persistence integration is behind `ExperimentStateRepository` to keep orchestration decoupled.
 
-> These are canonical v1 schemas to unblock parallel implementation. Teams can generate language-specific types from these structures.
+- **Integration boundaries (`src/integrations`)**
+  - Publishing path uses explicit dataclasses (`PublishRequest`, `PublishResult`) with governance requirements.
+  - Trend ingestion path uses `TrendSourceAdapter` protocol and canonical `NormalizedTrend` representation.
 
-### 5.1 Shared Envelope
+## 4) End-to-End Flow (Current Runtime)
 
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "2026-01-01T00:00:00Z",
-  "payload": {}
-}
+```text
+Local/External Trend Signals
+  -> Candidate Generation
+    -> Policy Validation
+      -> Publish (or Dry-Run Simulation)
+        -> KPI Collection
+          -> Optimization State Update
 ```
 
-### 5.2 Trend Analysis Contracts
-
-#### Input: `TrendIngestionRequest`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "sources": ["instagram", "google_trends", "social_listening"],
-    "time_window_hours": 24,
-    "geo": "US",
-    "language": "en"
-  }
-}
-```
-
-#### Output: `TrendSignalBatch`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "signals": [
-      {
-        "trend_id": "string",
-        "topic": "quiet luxury",
-        "platform": "instagram",
-        "velocity": 0.87,
-        "confidence": 0.91,
-        "audience_segments": ["gen_z", "fashion_interest"],
-        "evidence": {
-          "sample_size": 1200,
-          "examples": ["#quietluxury", "#capsulewardrobe"]
-        }
-      }
-    ]
-  }
-}
-```
-
-### 5.3 Content Generation Contracts
-
-#### Input: `ConceptGenerationRequest`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "trend_signals": ["TrendSignal"],
-    "brand_guidelines_ref": "bg_v3",
-    "campaign_context": {
-      "objective": "engagement",
-      "target_audience": ["gen_z"],
-      "constraints": ["no comparative claims"]
-    },
-    "prompt_profile_id": "prompt_profile_v12"
-  }
-}
-```
-
-#### Output: `ContentConceptBatch`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "concepts": [
-      {
-        "concept_id": "string",
-        "title": "3 Outfit Formula for Quiet Luxury",
-        "hook": "You only need 3 pieces to look expensive.",
-        "format": "reel",
-        "rationale": "High overlap with current trend + evergreen utility",
-        "expected_audience_fit": 0.84,
-        "source_trend_ids": ["trend_001", "trend_017"]
-      }
-    ]
-  }
-}
-```
-
-### 5.4 Scoring Contracts
-
-#### Input: `AssetScoringRequest`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "concept_id": "string",
-    "asset_package": {
-      "caption": "string",
-      "visual_brief": "string",
-      "hashtags": ["string"],
-      "cta": "string"
-    },
-    "score_weights": {
-      "brand_alignment": 0.3,
-      "predicted_engagement": 0.4,
-      "safety": 0.3
-    }
-  }
-}
-```
-
-#### Output: `ScoreCard`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "concept_id": "string",
-    "scores": {
-      "brand_alignment": 0.92,
-      "predicted_engagement": 0.76,
-      "safety": 0.98,
-      "composite": 0.86
-    },
-    "decision": "approve",
-    "reasons": ["Strong brand tone match", "Low policy risk"]
-  }
-}
-```
-
-### 5.5 Orchestration + Publish Queue Contracts
-
-#### Input: `PublishQueueRequest`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "concept_id": "string",
-    "asset_package_id": "string",
-    "channel": "instagram",
-    "schedule_at": "2026-01-02T16:00:00Z",
-    "priority": "normal"
-  }
-}
-```
-
-#### Output: `PublishJob`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "publish_job_id": "string",
-    "status": "queued",
-    "channel": "instagram",
-    "attempt": 0,
-    "next_retry_at": null
-  }
-}
-```
-
-### 5.6 Instagram Integration Contracts
-
-#### Input: `InstagramPublishRequest`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "publish_job_id": "string",
-    "media_type": "reel",
-    "media_uri": "s3://bucket/key.mp4",
-    "caption": "string",
-    "hashtags": ["string"]
-  }
-}
-```
-
-#### Output: `InstagramPublishResult`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "publish_job_id": "string",
-    "platform_post_id": "1789...",
-    "status": "published",
-    "published_at": "timestamp"
-  }
-}
-```
-
-### 5.7 Performance Feedback Contracts
-
-#### Input: `PerformanceSyncRequest`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "platform_post_id": "1789...",
-    "lookback_hours": 72
-  }
-}
-```
-
-#### Output: `PerformanceFeedback`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "platform_post_id": "1789...",
-    "concept_id": "string",
-    "metrics": {
-      "impressions": 120000,
-      "reach": 83000,
-      "engagement_rate": 0.064,
-      "saves": 2100,
-      "shares": 900,
-      "watch_through_rate": 0.41,
-      "profile_click_rate": 0.017
-    },
-    "benchmark_delta": {
-      "engagement_rate": 0.012,
-      "watch_through_rate": -0.03
-    }
-  }
-}
-```
-
-### 5.8 Prompt Update Contracts
-
-#### Input: `PromptUpdateRequest`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "prompt_profile_id": "prompt_profile_v12",
-    "feedback_batch": ["PerformanceFeedback"],
-    "analysis_window_days": 14
-  }
-}
-```
-
-#### Output: `PromptProfileUpdate`
-
-```json
-{
-  "schema_version": "1.0",
-  "trace_id": "uuid",
-  "created_at": "timestamp",
-  "payload": {
-    "prompt_profile_id": "prompt_profile_v13",
-    "previous_profile_id": "prompt_profile_v12",
-    "changes": [
-      {
-        "type": "instruction_addition",
-        "path": "style.hook_patterns",
-        "value": "Prefer utility-first opening lines in first 1.5 seconds"
-      }
-    ],
-    "justification": "Utility-first hooks increased watch-through by +8%",
-    "approval_required": true
-  }
-}
-```
-
----
-
-## 6) Storage Model (Logical)
-
-`src/storage/` should expose repositories or gateways for:
-
-- `trend_signals`
-- `content_concepts`
-- `asset_packages`
-- `score_cards`
-- `publish_jobs`
-- `platform_posts`
-- `performance_feedback`
-- `prompt_profiles`
-- `prompt_profile_history`
-
-Each record must support:
-- idempotent upsert (by natural keys where possible)
-- immutable audit trail for state changes
-- traceability (`trace_id`, upstream IDs)
-
----
-
-## 7) Orchestration State Machine (Reference)
-
-`orchestration` maintains these states per publish flow:
-
-1. `trend_received`
-2. `concept_generated`
-3. `asset_scored`
-4. `queued_for_publish`
-5. `published`
-6. `feedback_collected`
-7. `prompt_updated`
-
-Failure states:
-- `failed_validation`
-- `failed_publish_retryable`
-- `failed_publish_terminal`
-
-Retry policy (default):
-- max attempts: `3`
-- backoff: exponential (`2m`, `10m`, `30m`)
-
----
-
-## 8) Non-Functional Requirements (Initial)
-
-- **Observability**: structured logs + trace propagation across all modules.
-- **Determinism**: scoring should be reproducible for same inputs/version.
-- **Versioning**: contract and prompt profile versions are explicit.
-- **Safety**: content must pass policy/safety gates before queueing.
-- **Extensibility**: new channels should mirror `integrations/instagram` contract style.
-
----
-
-## 9) Implementation Notes for Independent Teams
-
-To work independently, each module team should:
-
-- Implement contract validation at module boundaries.
-- Produce consumer-driven contract tests.
-- Return machine-readable errors with stable codes, e.g.:
-
-```json
-{
-  "error": {
-    "code": "INVALID_SCHEMA",
-    "message": "Missing required field: payload.concept_id",
-    "retryable": false
-  }
-}
-```
-
-Recommended milestone order:
-1. Shared schemas + fixtures.
-2. Trend ingestion MVP.
-3. Concept generation + scoring.
-4. Publish queue + Instagram adapter.
-5. Feedback loop + prompt updater.
-
+This flow exists today across `src/main.py`, `src/instagram_ai_system/orchestration.py`, and `src/integrations/*` modules.

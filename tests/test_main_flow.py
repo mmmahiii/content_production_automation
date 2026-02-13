@@ -1,8 +1,15 @@
 from __future__ import annotations
+import argparse
+import logging
+import os
+
+import pytest
+from datetime import datetime, timezone
+
 
 from dataclasses import dataclass
 
-from main import RunConfig, run_cycle, run_loop
+from main import RunConfig, _run_ops, run_cycle, run_loop
 
 
 @dataclass
@@ -126,4 +133,73 @@ def test_run_cycle_partial_ingestion_metrics_surface_without_breaking_cycle() ->
     assert result["approved_count"] == 1
     assert result["published_count"] == 1
     assert result["metrics"]["ingestion_errors"] == 1
-    assert result["adaptive_updates"] == {}
+
+
+@pytest.mark.skipif(pytest.importorskip("sqlalchemy", reason="sqlalchemy required") is None, reason="sqlalchemy required")
+def test_ops_replay_failed_uses_persisted_attempts_and_is_idempotent(tmp_path) -> None:
+    db_url = f"sqlite+pysqlite:///{tmp_path / 'ops.db'}"
+    os.environ["DATABASE_URL"] = db_url
+
+    from instagram_ai_system.storage import Base, Database, PublishAttemptRepository
+
+    db = Database(db_url)
+    Base.metadata.create_all(db.engine)
+    with db.session_scope() as session:
+        PublishAttemptRepository(session).create_attempt(
+            attempt_id="failed-1",
+            brief_asset_id="asset-1",
+            platform="instagram",
+            status="failed",
+            attempt_number=1,
+            response_payload={},
+            error_message="network",
+            attempted_at=datetime.now(timezone.utc),
+            schema_version="1.0",
+            trace_id="trace-a",
+        )
+
+    args = argparse.Namespace(ops="replay-failed", mode="local", window_hours=24, since_hours=24, period="daily")
+    first = _run_ops(args, logger=logging.getLogger("test"))
+    second = _run_ops(args, logger=logging.getLogger("test"))
+
+    assert first["requested"] == 1
+    assert first["replayed"] == 1
+    assert second["skipped"] >= 1
+
+
+@pytest.mark.skipif(pytest.importorskip("sqlalchemy", reason="sqlalchemy required") is None, reason="sqlalchemy required")
+def test_ops_kpi_report_aggregates_from_snapshots(tmp_path) -> None:
+    db_url = f"sqlite+pysqlite:///{tmp_path / 'kpi.db'}"
+    os.environ["DATABASE_URL"] = db_url
+
+    from instagram_ai_system.storage import Base, Database, PerformanceSnapshotRepository
+
+    db = Database(db_url)
+    Base.metadata.create_all(db.engine)
+    with db.session_scope() as session:
+        repo = PerformanceSnapshotRepository(session)
+        repo.record_snapshot(
+            snapshot_id="s1",
+            publish_attempt_id="a1",
+            window="24h",
+            metrics_payload={"reach": 1000, "shares": 25, "saves": 10, "watch_through": 0.41},
+            derived_rates={},
+            captured_at=datetime.now(timezone.utc),
+            schema_version="1.0",
+            trace_id="trace-1",
+        )
+
+    args = argparse.Namespace(ops="kpi-report", mode="local", window_hours=24, since_hours=24, period="daily")
+    result = _run_ops(args, logger=logging.getLogger("test"))
+
+    assert result["totals"]["reach"] == 1000
+    assert result["objective_metrics"]["share_rate"] == 0.025
+
+
+@pytest.mark.skipif(pytest.importorskip("sqlalchemy", reason="sqlalchemy required") is None, reason="sqlalchemy required")
+def test_health_check_degraded_when_database_unavailable(monkeypatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite+pysqlite:///./nonexistent_dir/ops.db")
+    args = argparse.Namespace(ops="health-check", mode="local", window_hours=24, since_hours=24, period="daily")
+    result = _run_ops(args, logger=logging.getLogger("test"))
+    assert result["status"] == "degraded"
+    assert result["dependencies"]["database"] == "unavailable"

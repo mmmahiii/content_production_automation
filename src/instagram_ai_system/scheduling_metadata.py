@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from .contracts_envelope import extract_payload, wrap_payload
 from .schema_validation import validate_payload
 
 _ALLOWED_KPI_OBJECTIVES = {"reach", "saves", "shares", "watch-through"}
@@ -32,7 +33,8 @@ class SchedulingMetadataService:
         slot_labels = ["morning", "afternoon", "evening"]
         kpi_tags = sorted(_ALLOWED_KPI_OBJECTIVES)
 
-        for idx, script in enumerate(request.script_packages):
+        for idx, script_package in enumerate(request.script_packages):
+            script = extract_payload(script_package)
             publish_dt = current + step * idx
             slot = slot_labels[idx % len(slot_labels)]
             item = {
@@ -52,5 +54,6 @@ class SchedulingMetadataService:
             scheduled_items.append(item)
 
         payload = {"items": scheduled_items}
-        validate_payload(payload, self.schema_path)
-        return payload
+        enveloped_payload = wrap_payload(payload)
+        validate_payload(enveloped_payload, self.schema_path)
+        return enveloped_payload

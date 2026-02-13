@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import uuid4
 
+from .contracts_envelope import extract_payload, wrap_payload
 from .schema_validation import validate_payload
 
 _DURATION_BUCKETS = {15: (12, 18), 30: (24, 36), 45: (36, 54)}
@@ -22,7 +23,8 @@ class ScriptGenerationService:
     def generate(self, request: ScriptGenerationRequest) -> dict:
         if request.duration_seconds not in _DURATION_BUCKETS:
             raise ValueError("Duration bucket must be one of 15/30/45 seconds.")
-        idea_id = request.idea.get("idea_id")
+        idea = extract_payload(request.idea)
+        idea_id = idea.get("idea_id")
         if not idea_id:
             raise ValueError("idea payload must contain idea_id")
 
@@ -39,14 +41,14 @@ class ScriptGenerationService:
                     "segment_type": "hook",
                     "start_second": 0,
                     "end_second": hook_seconds,
-                    "voiceover": request.idea["hook_options"][0],
+                    "voiceover": idea["hook_options"][0],
                     "on_screen_text": "You are doing this wrong",
                 },
                 {
                     "segment_type": "body",
                     "start_second": hook_seconds,
                     "end_second": hook_seconds + body_seconds,
-                    "voiceover": request.idea["premise"],
+                    "voiceover": idea["premise"],
                     "on_screen_text": "Step 1, Step 2, Step 3",
                 },
                 {
@@ -58,8 +60,8 @@ class ScriptGenerationService:
                 },
             ],
             "caption_variants": {
-                "short": f"{request.idea['title']}. Save this for your next sprint.",
-                "long": f"{request.idea['premise']}\n\nTone: {request.tone}.\nCTA: {request.cta_preference}",
+                "short": f"{idea['title']}. Save this for your next sprint.",
+                "long": f"{idea['premise']}\n\nTone: {request.tone}.\nCTA: {request.cta_preference}",
             },
             "hashtags": [
                 "#instagramreels",
@@ -72,5 +74,6 @@ class ScriptGenerationService:
         min_duration, max_duration = _DURATION_BUCKETS[request.duration_seconds]
         if not (min_duration <= payload["estimated_total_duration_seconds"] <= max_duration):
             raise ValueError("Generated script violates duration tolerance.")
-        validate_payload(payload, self.schema_path)
-        return payload
+        enveloped_payload = wrap_payload(payload)
+        validate_payload(enveloped_payload, self.schema_path)
+        return enveloped_payload

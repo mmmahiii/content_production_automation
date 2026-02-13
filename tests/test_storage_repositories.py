@@ -16,6 +16,7 @@ from instagram_ai_system.storage import (
     ExperimentStateRepository,
     PerformanceSnapshotRepository,
     PublishAttemptRepository,
+    OperationRunRepository,
 )
 
 
@@ -130,3 +131,40 @@ def test_optimizer_state_persists_across_system_restarts() -> None:
         restored = InstagramAISystem(strategy=strategy, experiment_state_repo=repo)
         assert restored.optimizer.arms["problem_solution"].pulls == 1
         assert restored.optimizer.arms["problem_solution"].reward_sum > 0
+
+
+def test_operation_run_repository_tracks_failed_and_replayed_state() -> None:
+    db = Database("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(db.engine)
+
+    now = datetime.utcnow()
+    with db.session_scope() as session:
+        repo = OperationRunRepository(session)
+        repo.create_run(
+            run_id="run-1",
+            operation_name="publish",
+            params_payload={"asset_id": "a1"},
+            status="failed",
+            result_payload={"error": "timeout"},
+            trace_id="trace-1",
+            started_at=now,
+            completed_at=now,
+            error_message="timeout",
+        )
+        repo.create_run(
+            run_id="run-2",
+            operation_name="replay-failed",
+            params_payload={"failed_run_id": "run-1"},
+            status="succeeded",
+            result_payload={"status": "replayed"},
+            trace_id="trace-2",
+            started_at=now,
+            completed_at=now,
+        )
+
+    with db.session_scope() as session:
+        repo = OperationRunRepository(session)
+        failed = repo.list_failed_runs(operation_name="publish", since=datetime(2000, 1, 1))
+        assert len(failed) == 1
+        assert failed[0].id == "run-1"
+        assert repo.was_replayed(failed_run_id="run-1") is True
