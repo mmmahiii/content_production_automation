@@ -17,6 +17,8 @@ from time import sleep
 from typing import Callable, Protocol, TYPE_CHECKING
 from uuid import uuid4
 
+from instagram_ai_system.production_loop import PipelineWorker, run_daily_pipeline
+
 if TYPE_CHECKING:
     from instagram_ai_system.storage import Database
 
@@ -229,7 +231,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--once", action="store_true", help="Run exactly one cycle")
     parser.add_argument("--interval-seconds", type=int, default=900, help="Cycle sleep interval for continuous mode")
     parser.add_argument("--topic", default=None, help="Optional topic override")
-    parser.add_argument("--ops", choices=["health-check", "refill-queue", "replay-failed", "kpi-report"], default=None)
+    parser.add_argument("--ops", choices=["health-check", "refill-queue", "replay-failed", "kpi-report", "enqueue-daily", "run-worker"], default=None)
     parser.add_argument("--window-hours", type=int, default=24, help="Window for refill-queue operation")
     parser.add_argument("--since-hours", type=int, default=24, help="Window for replay-failed operation")
     parser.add_argument("--period", default="daily", choices=["daily", "weekly"], help="Period for kpi-report")
@@ -420,6 +422,14 @@ def _run_ops(args: argparse.Namespace, *, logger: logging.Logger) -> dict:
                     "skipped": skipped,
                     "still_failed": still_failed,
                 }
+            elif args.ops == "enqueue-daily":
+                worker = PipelineWorker()
+                run_id = worker.enqueue(topic=args.topic)
+                response = {"status": "queued", "run_id": run_id, "topic": args.topic or "general"}
+            elif args.ops == "run-worker":
+                worker = PipelineWorker()
+                run_id = worker.enqueue(topic=args.topic)
+                response = worker.process(run_id)
             elif args.ops == "kpi-report":
                 period_hours = 24 if args.period == "daily" else 24 * 7
                 since = datetime.now(timezone.utc) - timedelta(hours=period_hours)
@@ -500,6 +510,10 @@ def main() -> None:
     if args.ops:
         result = _run_ops(args, logger=logger)
         print(json.dumps(result, sort_keys=True))
+        return
+
+    if args.mode == "production" and args.once:
+        print(json.dumps(run_daily_pipeline(topic=args.topic), sort_keys=True))
         return
 
     config = RunConfig(mode=args.mode, once=args.once, interval_seconds=args.interval_seconds, topic=args.topic)

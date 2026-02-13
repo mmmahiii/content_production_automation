@@ -35,6 +35,7 @@ src/
     experiment_optimizer.py
     performance_ingestion.py
     orchestration.py
+    production_loop.py
     storage/
       database.py
       models.py
@@ -56,6 +57,7 @@ src/
 - `src/instagram_ai_system/storage/`: persistence layer abstractions and SQLAlchemy-backed database/repository modules for experiment state and related entities.
 - `src/integrations/instagram/`: publishing integration (governance gate, idempotency, retry/audit behavior) plus metrics normalization/aggregation helpers.
 - `src/integrations/trends/`: external trend adapter contracts and normalization for multi-source trend ingestion.
+- `src/instagram_ai_system/production_loop.py`: production vertical slice runner with real trend ingestion (Reddit), script+asset planning, render, publish/simulate, metrics pull, checkpointing, and learning snapshots.
 
 ### 2) Deferred modules from system design
 
