@@ -243,7 +243,46 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--window-hours", type=int, default=24, help="Window for refill-queue operation")
     parser.add_argument("--since-hours", type=int, default=24, help="Window for replay-failed operation")
     parser.add_argument("--period", default="daily", choices=["daily", "weekly"], help="Period for kpi-report")
+    parser.add_argument("--window", default=None, help="Optional KPI snapshot window filter (for example: 24h, 7d)")
+    parser.add_argument("--platform", default=None, help="Optional platform filter for KPI reports")
+    parser.add_argument("--output", default="json", choices=["json", "summary"], help="Output format")
     return parser
+
+
+def _format_output(result: dict, output_mode: str) -> str:
+    if output_mode == "json":
+        return json.dumps(result, sort_keys=True)
+
+    lines = ["== Automation Summary =="]
+    if "ops" in result:
+        lines.append(f"Operation: {result['ops']}")
+    if "status" in result:
+        lines.append(f"Status: {result['status']}")
+
+    if "totals" in result:
+        totals = result["totals"]
+        objective = result.get("objective_metrics", {})
+        lines.extend(
+            [
+                f"Period: {result.get('period', 'n/a')}",
+                f"Reach: {totals.get('reach', 0)}",
+                f"Shares: {totals.get('shares', 0)}",
+                f"Saves: {totals.get('saves', 0)}",
+                f"Watch-through: {objective.get('watch_through', totals.get('watch_through', 0.0))}",
+                f"Samples: {result.get('aggregate_window', {}).get('samples', 0)}",
+                f"Posts: {result.get('aggregate_window', {}).get('posts', 0)}",
+            ]
+        )
+    elif "published_count" in result:
+        lines.extend(
+            [
+                f"Mode: {result.get('mode', 'n/a')}",
+                f"Published: {result.get('published_count', 0)}",
+                f"Approved: {result.get('approved_count', 0)}",
+            ]
+        )
+
+    return "\n".join(lines)
 
 
 def _aggregate_kpis(period: str, snapshots: list) -> dict:
@@ -308,6 +347,8 @@ def _run_ops(args: argparse.Namespace, *, logger: logging.Logger) -> dict:
         "window_hours": args.window_hours,
         "since_hours": args.since_hours,
         "period": args.period,
+        "window": args.window,
+        "platform": args.platform,
     }
     db = None
     run_id = str(uuid4())
@@ -446,12 +487,23 @@ def _run_ops(args: argparse.Namespace, *, logger: logging.Logger) -> dict:
             elif args.ops == "kpi-report":
                 period_hours = 24 if args.period == "daily" else 24 * 7
                 since = datetime.now(timezone.utc) - timedelta(hours=period_hours)
+                stmt = select(PerformanceSnapshotModel).where(PerformanceSnapshotModel.captured_at >= since)
+                if args.window:
+                    stmt = stmt.where(PerformanceSnapshotModel.window == args.window)
+                if args.platform:
+                    stmt = stmt.join(
+                        PublishAttemptModel,
+                        PublishAttemptModel.id == PerformanceSnapshotModel.publish_attempt_id,
+                    ).where(PublishAttemptModel.platform == args.platform)
                 snapshots = list(
-                    session.scalars(
-                        select(PerformanceSnapshotModel).where(PerformanceSnapshotModel.captured_at >= since)
-                    )
+                    session.scalars(stmt)
                 )
-                response = {"status": "ok", **_aggregate_kpis(args.period, snapshots)}
+                response = {
+                    "status": "ok",
+                    "ops": args.ops,
+                    "filters": {"window": args.window, "platform": args.platform},
+                    **_aggregate_kpis(args.period, snapshots),
+                }
             else:
                 raise ValueError(f"Unsupported operation: {args.ops}")
 
@@ -522,11 +574,11 @@ def main() -> None:
 
     if args.ops:
         result = _run_ops(args, logger=logger)
-        print(json.dumps(result, sort_keys=True))
+        print(_format_output(result, args.output))
         return
 
     if args.mode == "production" and args.once:
-        print(json.dumps(run_daily_pipeline(topic=args.topic), sort_keys=True))
+        print(_format_output(run_daily_pipeline(topic=args.topic), args.output))
         return
 
     config = RunConfig(mode=args.mode, once=args.once, interval_seconds=args.interval_seconds, topic=args.topic)
@@ -585,7 +637,7 @@ def main() -> None:
             adaptive_cycle=adaptive_cycle,
             logger=logger,
         )
-        print(json.dumps(summary, sort_keys=True))
+        print(_format_output(summary, args.output))
 
         if config.once:
             break

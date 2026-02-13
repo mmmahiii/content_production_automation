@@ -46,7 +46,7 @@ uv run python -m src.main --ops run-worker --topic "ai productivity"
 uv run python -m src.main --ops replay-failed --since-hours 24
 
 # Generate KPI snapshot report
-uv run python -m src.main --ops kpi-report --period daily
+uv run python -m src.main --ops kpi-report --period daily --window 24h --platform instagram --output summary
 ```
 
 ## Weekly operations checklist
@@ -63,7 +63,7 @@ Perform once per week:
 ## Weekly command set (example)
 
 ```bash
-uv run python -m src.main --ops kpi-report --period weekly
+uv run python -m src.main --ops kpi-report --period weekly --window 7d --platform instagram --output json
 uv run python -m src.main --ops template-rank --period 30d
 uv run python -m src.main --ops strategy-refresh
 uv run python -m src.main --ops cost-report --period weekly
