@@ -1,15 +1,22 @@
 from __future__ import annotations
+
 import argparse
+import json
 import logging
 import os
-
-import pytest
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
+import pytest
 
-from dataclasses import dataclass
+from main import RunConfig, _format_output, _run_ops, main, run_cycle, run_loop
 
-from main import RunConfig, _run_ops, run_cycle, run_loop
+try:
+    import sqlalchemy  # noqa: F401
+
+    HAS_SQLALCHEMY = True
+except Exception:
+    HAS_SQLALCHEMY = False
 
 
 @dataclass
@@ -135,7 +142,25 @@ def test_run_cycle_partial_ingestion_metrics_surface_without_breaking_cycle() ->
     assert result["metrics"]["ingestion_errors"] == 1
 
 
-@pytest.mark.skipif(pytest.importorskip("sqlalchemy", reason="sqlalchemy required") is None, reason="sqlalchemy required")
+def test_format_output_summary_for_kpi_report() -> None:
+    summary = _format_output(
+        {
+            "ops": "kpi-report",
+            "status": "ok",
+            "period": "daily",
+            "totals": {"reach": 1000, "shares": 10, "saves": 5, "watch_through": 0.4},
+            "objective_metrics": {"watch_through": 0.4},
+            "aggregate_window": {"samples": 3, "posts": 1},
+        },
+        "summary",
+    )
+
+    assert "== Automation Summary ==" in summary
+    assert "Operation: kpi-report" in summary
+    assert "Reach: 1000" in summary
+
+
+@pytest.mark.skipif(not HAS_SQLALCHEMY, reason="sqlalchemy required")
 def test_ops_replay_failed_uses_persisted_attempts_and_is_idempotent(tmp_path) -> None:
     db_url = f"sqlite+pysqlite:///{tmp_path / 'ops.db'}"
     os.environ["DATABASE_URL"] = db_url
@@ -158,7 +183,15 @@ def test_ops_replay_failed_uses_persisted_attempts_and_is_idempotent(tmp_path) -
             trace_id="trace-a",
         )
 
-    args = argparse.Namespace(ops="replay-failed", mode="local", window_hours=24, since_hours=24, period="daily")
+    args = argparse.Namespace(
+        ops="replay-failed",
+        mode="local",
+        window_hours=24,
+        since_hours=24,
+        period="daily",
+        window=None,
+        platform=None,
+    )
     first = _run_ops(args, logger=logging.getLogger("test"))
     second = _run_ops(args, logger=logging.getLogger("test"))
 
@@ -167,16 +200,43 @@ def test_ops_replay_failed_uses_persisted_attempts_and_is_idempotent(tmp_path) -
     assert second["skipped"] >= 1
 
 
-@pytest.mark.skipif(pytest.importorskip("sqlalchemy", reason="sqlalchemy required") is None, reason="sqlalchemy required")
-def test_ops_kpi_report_aggregates_from_snapshots(tmp_path) -> None:
+@pytest.mark.skipif(not HAS_SQLALCHEMY, reason="sqlalchemy required")
+def test_ops_kpi_report_aggregates_from_snapshots_with_filters(tmp_path) -> None:
     db_url = f"sqlite+pysqlite:///{tmp_path / 'kpi.db'}"
     os.environ["DATABASE_URL"] = db_url
 
-    from instagram_ai_system.storage import Base, Database, PerformanceSnapshotRepository
+    from instagram_ai_system.storage import Base, Database, PerformanceSnapshotRepository, PublishAttemptRepository
 
     db = Database(db_url)
     Base.metadata.create_all(db.engine)
+    now = datetime.now(timezone.utc)
     with db.session_scope() as session:
+        attempts = PublishAttemptRepository(session)
+        attempts.create_attempt(
+            attempt_id="a1",
+            brief_asset_id="asset-1",
+            platform="instagram",
+            status="success",
+            attempt_number=1,
+            response_payload={},
+            error_message=None,
+            attempted_at=now,
+            schema_version="1.0",
+            trace_id="trace-1",
+        )
+        attempts.create_attempt(
+            attempt_id="a2",
+            brief_asset_id="asset-2",
+            platform="tiktok",
+            status="success",
+            attempt_number=1,
+            response_payload={},
+            error_message=None,
+            attempted_at=now,
+            schema_version="1.0",
+            trace_id="trace-2",
+        )
+
         repo = PerformanceSnapshotRepository(session)
         repo.record_snapshot(
             snapshot_id="s1",
@@ -184,22 +244,87 @@ def test_ops_kpi_report_aggregates_from_snapshots(tmp_path) -> None:
             window="24h",
             metrics_payload={"reach": 1000, "shares": 25, "saves": 10, "watch_through": 0.41},
             derived_rates={},
-            captured_at=datetime.now(timezone.utc),
+            captured_at=now,
             schema_version="1.0",
             trace_id="trace-1",
         )
+        repo.record_snapshot(
+            snapshot_id="s2",
+            publish_attempt_id="a2",
+            window="7d",
+            metrics_payload={"reach": 9000, "shares": 1, "saves": 1, "watch_through": 0.2},
+            derived_rates={},
+            captured_at=now,
+            schema_version="1.0",
+            trace_id="trace-2",
+        )
 
-    args = argparse.Namespace(ops="kpi-report", mode="local", window_hours=24, since_hours=24, period="daily")
+    args = argparse.Namespace(
+        ops="kpi-report",
+        mode="local",
+        window_hours=24,
+        since_hours=24,
+        period="daily",
+        window="24h",
+        platform="instagram",
+    )
     result = _run_ops(args, logger=logging.getLogger("test"))
 
     assert result["totals"]["reach"] == 1000
     assert result["objective_metrics"]["share_rate"] == 0.025
+    assert result["filters"] == {"window": "24h", "platform": "instagram"}
 
 
-@pytest.mark.skipif(pytest.importorskip("sqlalchemy", reason="sqlalchemy required") is None, reason="sqlalchemy required")
+@pytest.mark.skipif(not HAS_SQLALCHEMY, reason="sqlalchemy required")
 def test_health_check_degraded_when_database_unavailable(monkeypatch) -> None:
     monkeypatch.setenv("DATABASE_URL", "sqlite+pysqlite:///./nonexistent_dir/ops.db")
-    args = argparse.Namespace(ops="health-check", mode="local", window_hours=24, since_hours=24, period="daily")
+    args = argparse.Namespace(
+        ops="health-check",
+        mode="local",
+        window_hours=24,
+        since_hours=24,
+        period="daily",
+        window=None,
+        platform=None,
+    )
     result = _run_ops(args, logger=logging.getLogger("test"))
     assert result["status"] == "degraded"
     assert result["dependencies"]["database"] == "unavailable"
+
+
+def test_main_summary_output_mode(monkeypatch, capsys) -> None:
+    class StubAdaptiveCycle:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        def process_after_analytics(self, metrics: dict, trace_id: str) -> dict:
+            return {}
+
+    monkeypatch.setattr("main.AdaptiveCycleCoordinator", StubAdaptiveCycle)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["main.py", "--mode", "dry-run", "--once", "--output", "summary"],
+    )
+    main()
+    out = capsys.readouterr().out
+    assert "== Automation Summary ==" in out
+    assert "Mode: dry-run" in out
+
+
+def test_main_json_output_mode(monkeypatch, capsys) -> None:
+    class StubAdaptiveCycle:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        def process_after_analytics(self, metrics: dict, trace_id: str) -> dict:
+            return {}
+
+    monkeypatch.setattr("main.AdaptiveCycleCoordinator", StubAdaptiveCycle)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["main.py", "--mode", "dry-run", "--once", "--output", "json"],
+    )
+    main()
+    out = capsys.readouterr().out.strip()
+    parsed = json.loads(out)
+    assert parsed["mode"] == "dry-run"
