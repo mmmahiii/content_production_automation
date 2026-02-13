@@ -4,50 +4,127 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "script_id",
-    "source_idea_id",
-    "duration_bucket_seconds",
-    "estimated_total_duration_seconds",
-    "segments",
-    "caption_variants",
-    "hashtags"
+    "schema_version",
+    "trace_id",
+    "created_at",
+    "payload"
   ],
   "properties": {
-    "script_id": {"type": "string", "minLength": 1},
-    "source_idea_id": {"type": "string", "minLength": 1},
-    "duration_bucket_seconds": {"type": "integer", "enum": [15, 30, 45]},
-    "estimated_total_duration_seconds": {"type": "number", "minimum": 1},
-    "segments": {
-      "type": "array",
-      "minItems": 3,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["segment_type", "start_second", "end_second", "voiceover", "on_screen_text"],
-        "properties": {
-          "segment_type": {"type": "string", "enum": ["hook", "body", "cta"]},
-          "start_second": {"type": "number", "minimum": 0},
-          "end_second": {"type": "number", "exclusiveMinimum": 0},
-          "voiceover": {"type": "string", "minLength": 1},
-          "on_screen_text": {"type": "string", "minLength": 1}
-        }
-      }
+    "schema_version": {
+      "type": "string",
+      "minLength": 1
     },
-    "caption_variants": {
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["short", "long"],
+      "required": [
+        "script_id",
+        "source_idea_id",
+        "duration_bucket_seconds",
+        "estimated_total_duration_seconds",
+        "segments",
+        "caption_variants",
+        "hashtags"
+      ],
       "properties": {
-        "short": {"type": "string", "minLength": 1},
-        "long": {"type": "string", "minLength": 1}
+        "script_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_idea_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "duration_bucket_seconds": {
+          "type": "integer",
+          "enum": [
+            15,
+            30,
+            45
+          ]
+        },
+        "estimated_total_duration_seconds": {
+          "type": "number",
+          "minimum": 1
+        },
+        "segments": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "segment_type",
+              "start_second",
+              "end_second",
+              "voiceover",
+              "on_screen_text"
+            ],
+            "properties": {
+              "segment_type": {
+                "type": "string",
+                "enum": [
+                  "hook",
+                  "body",
+                  "cta"
+                ]
+              },
+              "start_second": {
+                "type": "number",
+                "minimum": 0
+              },
+              "end_second": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "voiceover": {
+                "type": "string",
+                "minLength": 1
+              },
+              "on_screen_text": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "caption_variants": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "short",
+            "long"
+          ],
+          "properties": {
+            "short": {
+              "type": "string",
+              "minLength": 1
+            },
+            "long": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "hashtags": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 10,
+          "items": {
+            "type": "string",
+            "minLength": 2
+          },
+          "uniqueItems": true
+        }
       }
-    },
-    "hashtags": {
-      "type": "array",
-      "minItems": 5,
-      "maxItems": 10,
-      "items": {"type": "string", "minLength": 2},
-      "uniqueItems": true
     }
   }
 }

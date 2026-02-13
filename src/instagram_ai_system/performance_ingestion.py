@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from .contracts_envelope import wrap_payload
 from .schema_validation import validate_payload
 
 _REQUIRED_FIELDS = [
@@ -26,7 +27,7 @@ _REQUIRED_FIELDS = [
 class IngestionResult:
     records: list[dict[str, Any]]
     errors: list[dict[str, Any]]
-    summary: dict[str, int]
+    summary: dict[str, Any]
 
 
 class PerformanceIngestionService:
@@ -50,23 +51,25 @@ class PerformanceIngestionService:
         for row_num, row in enumerate(rows, start=1):
             try:
                 normalized = self._normalize_row(row)
-                validate_payload(normalized, self.schema_path)
-                accepted.append(normalized)
-                self._records.append(normalized)
+                enveloped_record = wrap_payload(normalized)
+                validate_payload(enveloped_record, self.schema_path)
+                accepted.append(enveloped_record)
+                self._records.append(enveloped_record)
             except Exception as exc:  # noqa: BLE001
                 errors.append({"row": row_num, "post_id": row.get("post_id"), "error": str(exc)})
 
         return IngestionResult(
             records=accepted,
             errors=errors,
-            summary={"processed": len(rows), "succeeded": len(accepted), "failed": len(errors)},
+            summary=wrap_payload({"processed": len(rows), "succeeded": len(accepted), "failed": len(errors)}),
         )
 
     def query(self, post_id: str, start: datetime, end: datetime) -> list[dict[str, Any]]:
         return [
             record
             for record in self._records
-            if record["post_id"] == post_id and start <= datetime.fromisoformat(record["observed_at"]) <= end
+            if record["payload"]["post_id"] == post_id
+            and start <= datetime.fromisoformat(record["payload"]["observed_at"]) <= end
         ]
 
     def _normalize_row(self, row: dict[str, Any]) -> dict[str, Any]:
