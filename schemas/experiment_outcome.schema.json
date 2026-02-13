@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/experiment_outcome.schema.json",
+  "title": "ExperimentOutcome",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nicheName",
+    "postsPublished",
+    "medianViews",
+    "followConversionRate",
+    "savesSharesPerView",
+    "retentionProxy",
+    "feasibilityNote"
+  ],
+  "properties": {
+    "nicheName": {"type": "string", "minLength": 1},
+    "postsPublished": {"type": "integer", "minimum": 0},
+    "medianViews": {"type": "number", "minimum": 0},
+    "followConversionRate": {"type": "number", "minimum": 0},
+    "savesSharesPerView": {"type": "number", "minimum": 0},
+    "retentionProxy": {"type": "number", "minimum": 0, "maximum": 1},
+    "feasibilityNote": {"type": "string", "minLength": 1}
+  }
+}

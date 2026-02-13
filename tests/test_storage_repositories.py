@@ -17,6 +17,7 @@ from instagram_ai_system.storage import (
     PerformanceSnapshotRepository,
     PublishAttemptRepository,
     OperationRunRepository,
+    NicheStrategyRepository,
 )
 
 
@@ -168,3 +169,68 @@ def test_operation_run_repository_tracks_failed_and_replayed_state() -> None:
         assert len(failed) == 1
         assert failed[0].id == "run-1"
         assert repo.was_replayed(failed_run_id="run-1") is True
+
+
+def test_niche_strategy_repository_persists_strategy_records() -> None:
+    db = Database("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(db.engine)
+
+    with db.session_scope() as session:
+        repo = NicheStrategyRepository(session)
+        repo.create_niche_candidate(
+            candidate_id="nc-1",
+            niche_name="AI operators",
+            target_audience="agency founders",
+            candidate_payload={"formats": ["reels"]},
+            status="generated",
+            schema_version="1.0",
+            trace_id="trace-n1",
+        )
+        repo.record_niche_score(
+            score_id="ns-1",
+            niche_candidate_id="nc-1",
+            score_payload={"demand": 0.8},
+            success_score=0.74,
+            model_version="rules-v1",
+            schema_version="1.0",
+            trace_id="trace-n2",
+        )
+        repo.create_account_experiment(
+            experiment_id="ae-1",
+            niche_candidate_id="nc-1",
+            account_handle="@pilot_ai_ops",
+            stage="stage_1",
+            status="planned",
+            plan_payload={"posts": 12},
+            schema_version="1.0",
+            trace_id="trace-n3",
+        )
+        repo.create_experiment_post(
+            post_id="ep-1",
+            account_experiment_id="ae-1",
+            content_ref="brief-1",
+            status="planned",
+            schema_version="1.0",
+            trace_id="trace-n4",
+        )
+        repo.record_experiment_metric(
+            metric_id="em-1",
+            experiment_post_id="ep-1",
+            metric_payload={"views": 1200},
+            captured_at=datetime.utcnow(),
+            schema_version="1.0",
+            trace_id="trace-n5",
+        )
+        repo.record_model_version(
+            version_id="mv-1",
+            model_name="niche_success",
+            version_tag="rules-v1",
+            parameters_payload={"weights": {"demand": 0.25}},
+            schema_version="1.0",
+            trace_id="trace-n6",
+        )
+
+    with db.session_scope() as session:
+        ranked = NicheStrategyRepository(session).list_ranked_niches()
+        assert len(ranked) == 1
+        assert ranked[0].success_score == pytest.approx(0.74)

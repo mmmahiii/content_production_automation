@@ -106,3 +106,12 @@ To safely introduce post-analytics adaptation loops, keep each loop behind an in
 - Bound learning-loop exploration changes with floor/ceiling limits.
 - Normalize objective weight updates after each adjustment to preserve a stable reward function.
 - Emit traceable update payloads in cycle summaries for observability and auditability.
+
+
+## Niche & Account Strategy Engine (Pre-Loop Layer)
+
+The strategy engine is integrated as an upstream layer before content generation. It handles candidate generation, signal collection, score-based ranking, portfolio selection, and experiment-driven model updates.
+
+- Service module: `src/instagram_ai_system/niche_strategy_engine.py`
+- Persistence tables: `niche_candidates`, `niche_scores`, `account_experiments`, `experiment_posts`, `experiment_metrics`, `model_versions`
+- Contracts: `schemas/niche_candidate.schema.json`, `schemas/niche_score_breakdown.schema.json`, `schemas/experiment_plan.schema.json`, `schemas/experiment_outcome.schema.json`

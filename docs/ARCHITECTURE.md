@@ -100,6 +100,53 @@ These remain planned capabilities and should be treated as roadmap items, not cu
   - Publishing path uses explicit dataclasses (`PublishRequest`, `PublishResult`) with governance requirements.
   - Trend ingestion path uses `TrendSourceAdapter` protocol and canonical `NormalizedTrend` representation.
 
+## Niche & Account Strategy Engine (Pre-Loop Layer)
+
+A new pre-loop strategy layer now sits *before* the content loop and is responsible for selecting and continually updating the best account/niche concepts.
+
+### Runtime placement
+
+```text
+Niche Candidate Generator
+  -> Market & Demand Signals
+  -> Competition/Saturation Analysis
+  -> Feasibility & Compliance Checks
+  -> Monetisation Path Scoring
+  -> Success Probability Ranking
+  -> Portfolio Selection (2-6 niches)
+  -> Content Creation Loop
+```
+
+### Implemented service contract
+
+`src/instagram_ai_system/niche_strategy_engine.py` exposes:
+
+- `generate_candidates()`
+- `collect_signals(candidates)`
+- `score_candidates(candidates, signals)`
+- `select_portfolio(top_k)`
+- `evaluate_results(performance_snapshots)`
+- `update_model()`
+- `build_decision_report(ranked, portfolio)`
+
+### Persistence and contracts
+
+Storage models and migration introduce:
+
+- `niche_candidates`
+- `niche_scores`
+- `account_experiments`
+- `experiment_posts`
+- `experiment_metrics`
+- `model_versions`
+
+Canonical schema contracts added in `schemas/`:
+
+- `niche_candidate.schema.json`
+- `niche_score_breakdown.schema.json`
+- `experiment_plan.schema.json`
+- `experiment_outcome.schema.json`
+
 ## 4) End-to-End Flow (Current Runtime)
 
 ```text

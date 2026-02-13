@@ -75,6 +75,41 @@ VALID_PAYLOADS: dict[str, dict] = {
         "publishedAt": "2026-01-01T00:00:00Z",
         "url": "https://example.com/post/1",
     },
+    "schemas/niche_candidate.schema.json": {
+        "nicheName": "AI Operators for Agencies",
+        "targetAudience": "Agency founders",
+        "contentFormats": ["short reel", "carousel"],
+        "uniqueAngle": "No-face execution playbooks",
+        "examplePostIdeas": ["Post 1", "Post 2", "Post 3"],
+        "creatorPersonaTone": "practical",
+        "productionRequirements": ["screen capture"],
+        "monetizationRoutes": ["affiliate", "templates"]
+    },
+    "schemas/niche_score_breakdown.schema.json": {
+        "nicheName": "AI Operators for Agencies",
+        "demand": 0.8,
+        "lowSaturation": 0.6,
+        "feasibility": 0.9,
+        "differentiationSpace": 0.7,
+        "monetization": 0.8,
+        "successScore": 0.76
+    },
+    "schemas/experiment_plan.schema.json": {
+        "nicheName": "AI Operators for Agencies",
+        "accountHandle": "@pilot_ai_ops",
+        "cadencePerWeek": 5,
+        "plannedPosts": 12,
+        "contentFormatMix": ["short reel", "carousel"]
+    },
+    "schemas/experiment_outcome.schema.json": {
+        "nicheName": "AI Operators for Agencies",
+        "postsPublished": 12,
+        "medianViews": 4200,
+        "followConversionRate": 0.018,
+        "savesSharesPerView": 0.062,
+        "retentionProxy": 0.44,
+        "feasibilityNote": "Sustainable with 2-hour daily block"
+    },
 }
 
 
@@ -96,6 +131,10 @@ def test_valid_payloads_match_schema_contracts(schema_path: str) -> None:
         ("schemas/content_candidate.schema.json", lambda d: d.__setitem__("status", "invalid")),
         ("schemas/performance_snapshot.schema.json", lambda d: d["metrics"].__setitem__("retention", 1.5)),
         ("schemas/published_post.schema.json", lambda d: d.__setitem__("url", "not-a-uri")),
+        ("schemas/niche_candidate.schema.json", lambda d: d["contentFormats"].clear()),
+        ("schemas/niche_score_breakdown.schema.json", lambda d: d.__setitem__("successScore", 1.2)),
+        ("schemas/experiment_plan.schema.json", lambda d: d.__setitem__("plannedPosts", 0)),
+        ("schemas/experiment_outcome.schema.json", lambda d: d.__setitem__("retentionProxy", 1.2)),
     ],
 )
 def test_invalid_payloads_are_rejected(schema_path: str, mutator) -> None:

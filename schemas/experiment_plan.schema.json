@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/experiment_plan.schema.json",
+  "title": "ExperimentPlan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["nicheName", "accountHandle", "cadencePerWeek", "plannedPosts", "contentFormatMix"],
+  "properties": {
+    "nicheName": {"type": "string", "minLength": 1},
+    "accountHandle": {"type": "string", "minLength": 1},
+    "cadencePerWeek": {"type": "integer", "minimum": 1},
+    "plannedPosts": {"type": "integer", "minimum": 1},
+    "contentFormatMix": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  }
+}
