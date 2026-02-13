@@ -203,3 +203,70 @@ def test_health_check_degraded_when_database_unavailable(monkeypatch) -> None:
     result = _run_ops(args, logger=logging.getLogger("test"))
     assert result["status"] == "degraded"
     assert result["dependencies"]["database"] == "unavailable"
+
+
+@pytest.mark.skipif(pytest.importorskip("sqlalchemy", reason="sqlalchemy required") is None, reason="sqlalchemy required")
+def test_ops_enqueue_daily_completes_operation_run_with_distinct_pipeline_run_id(tmp_path, monkeypatch) -> None:
+    db_url = f"sqlite+pysqlite:///{tmp_path / 'enqueue.db'}"
+    os.environ["DATABASE_URL"] = db_url
+
+    from instagram_ai_system.storage import Base, Database
+    from instagram_ai_system.storage.models import OperationRunModel
+
+    class StubWorker:
+        def enqueue(self, topic: str | None = None) -> str:
+            return "pipeline-enqueue-123"
+
+    monkeypatch.setattr("main.PipelineWorker", StubWorker)
+
+    db = Database(db_url)
+    Base.metadata.create_all(db.engine)
+
+    args = argparse.Namespace(ops="enqueue-daily", mode="local", window_hours=24, since_hours=24, period="daily", topic="fitness")
+    result = _run_ops(args, logger=logging.getLogger("test"))
+
+    assert result["pipeline_run_id"] == "pipeline-enqueue-123"
+
+    with db.session_scope() as session:
+        runs = list(session.query(OperationRunModel).all())
+
+    assert len(runs) == 1
+    assert runs[0].status == "succeeded"
+    assert runs[0].operation_name == "enqueue-daily"
+    assert runs[0].id != result["pipeline_run_id"]
+    assert runs[0].result_payload["pipeline_run_id"] == result["pipeline_run_id"]
+
+
+@pytest.mark.skipif(pytest.importorskip("sqlalchemy", reason="sqlalchemy required") is None, reason="sqlalchemy required")
+def test_ops_run_worker_completes_operation_run_with_distinct_pipeline_run_id(tmp_path, monkeypatch) -> None:
+    db_url = f"sqlite+pysqlite:///{tmp_path / 'worker.db'}"
+    os.environ["DATABASE_URL"] = db_url
+
+    from instagram_ai_system.storage import Base, Database
+    from instagram_ai_system.storage.models import OperationRunModel
+
+    class StubWorker:
+        def enqueue(self, topic: str | None = None) -> str:
+            return "pipeline-worker-456"
+
+        def process(self, run_id: str) -> dict:
+            return {"status": "completed", "run_id": run_id, "completed_stages": 5}
+
+    monkeypatch.setattr("main.PipelineWorker", StubWorker)
+
+    db = Database(db_url)
+    Base.metadata.create_all(db.engine)
+
+    args = argparse.Namespace(ops="run-worker", mode="local", window_hours=24, since_hours=24, period="daily", topic="tech")
+    result = _run_ops(args, logger=logging.getLogger("test"))
+
+    assert result["pipeline_run_id"] == "pipeline-worker-456"
+
+    with db.session_scope() as session:
+        runs = list(session.query(OperationRunModel).all())
+
+    assert len(runs) == 1
+    assert runs[0].status == "succeeded"
+    assert runs[0].operation_name == "run-worker"
+    assert runs[0].id != result["pipeline_run_id"]
+    assert runs[0].result_payload["pipeline_run_id"] == result["pipeline_run_id"]
