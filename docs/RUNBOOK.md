@@ -10,6 +10,23 @@ Runbook for operating the daily automation loop. Use this once the first product
 
 ## SLOs and guardrails
 
+## Publish governance controls (must-read)
+
+The publish stage in `production_loop.py` is simulation-first by design.
+
+- Default mode is simulation (`ALLOW_AUTONOMOUS_PUBLISH=false`).
+- Live publish requires **all three** env vars set to truthy values:
+  - `ALLOW_AUTONOMOUS_PUBLISH`
+  - `PUBLISH_APPROVAL_GRANTED`
+  - `GOVERNANCE_APPROVED`
+- Missing any signal forces a simulated publish payload and logs the reason.
+
+Recommended operational practice:
+1. Keep `ALLOW_AUTONOMOUS_PUBLISH=false` in baseline environments.
+2. Enable all three values only in approved release windows.
+3. Reset approvals to false after window closes.
+
+
 - **Publishing success rate (24h):** `>= 98%`
 - **Failed-job mean time to recovery:** `< 30 minutes`
 - **Time-to-detect severe performance drop:** `< 24 hours`

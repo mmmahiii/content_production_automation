@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import urllib.parse
@@ -11,6 +12,9 @@ from pathlib import Path
 from time import sleep
 from typing import Any
 from uuid import uuid4
+
+
+logger = logging.getLogger(__name__)
 
 from integrations.trends import InstagramHashtagScraperAdapter, RedditTrendsAdapter, TrendAggregator
 from typing import TYPE_CHECKING
@@ -218,16 +222,42 @@ class FfmpegRenderer:
 
 
 class InstagramGraphPublisher:
+    @staticmethod
+    def _is_enabled(value: str | None) -> bool:
+        return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+    def _live_publish_allowed(self) -> tuple[bool, str | None]:
+        if not self._is_enabled(os.getenv("ALLOW_AUTONOMOUS_PUBLISH", "false")):
+            return (False, "ALLOW_AUTONOMOUS_PUBLISH is not enabled")
+        if not self._is_enabled(os.getenv("PUBLISH_APPROVAL_GRANTED")):
+            return (False, "PUBLISH_APPROVAL_GRANTED is not enabled")
+        if not self._is_enabled(os.getenv("GOVERNANCE_APPROVED")):
+            return (False, "GOVERNANCE_APPROVED is not enabled")
+        return (True, None)
+
     def publish_or_schedule(self, media_path: str, caption: str, run_id: str) -> dict[str, Any]:
         token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
         account_id = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID")
-        if not token or not account_id:
+        live_allowed, block_reason = self._live_publish_allowed()
+        if not live_allowed:
+            logger.info("Publish request forced to simulation mode: %s", block_reason)
             return {
                 "platform": "instagram",
                 "status": "simulated",
                 "platform_post_id": f"sim-{run_id}",
                 "media_path": media_path,
                 "caption": caption,
+                "reason": block_reason,
+            }
+        if not token or not account_id:
+            logger.info("Publish request forced to simulation mode: missing instagram credentials")
+            return {
+                "platform": "instagram",
+                "status": "simulated",
+                "platform_post_id": f"sim-{run_id}",
+                "media_path": media_path,
+                "caption": caption,
+                "reason": "missing instagram credentials",
             }
 
         create_url = f"https://graph.facebook.com/v20.0/{account_id}/media"
