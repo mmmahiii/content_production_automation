@@ -59,16 +59,38 @@ src/
 - `src/integrations/trends/`: external trend adapter contracts and normalization for multi-source trend ingestion.
 - `src/instagram_ai_system/production_loop.py`: production vertical slice runner with real trend ingestion (Reddit), script+asset planning, render, publish/simulate, metrics pull, checkpointing, and learning snapshots.
 
-### 2) Deferred modules from system design
+### 2) Adaptive modules already implemented
 
-The following modules appear in system design documentation but are not yet implemented as first-class runtime modules:
+The following adaptive modules are implemented in `src/instagram_ai_system` and are no longer deferred:
 
-- **mode controller** (dynamic exploit/explore/mutation/chaos policy service)
-- **shadow testing** (traffic splitting + winner promotion loop)
-- **monetization analyst** (segment/conversion-intent guidance engine)
-- **learning loop** (automated model-delta updates from predicted-vs-actual errors)
+- **mode controller** (`mode_controller.py`)
+  - Boundary: `ModeController.decide(current_mode, explore_coef, inputs)`
+  - Data contract: `ModeInputs` -> `ModeDecision`
+  - Known limitation: rule-based thresholds are static and not learned from historical policy transitions.
+- **shadow testing** (`shadow_testing.py`)
+  - Boundary: `ShadowTestEvaluator.evaluate(results, min_views=200)`
+  - Data contract: `list[ShadowVariantResult]` -> `ShadowWinner`
+  - Known limitation: deterministic weighted scoring and confidence gate, without statistical significance modeling.
+- **learning strategy updates** (`learning_strategy_updates.py`)
+  - Boundaries: `LearningLoopUpdater.apply(...)`, `ObjectiveAwareStrategyUpdater.apply(...)`
+  - Data contract: observed/predicted score arrays + KPI delta maps mutate `OptimizationConfig`; returns `LearningLoopUpdate` / `StrategyUpdate`.
+  - Known limitation: in-process updates only (no persisted model snapshot/rollback service).
+- **monetization analytics** (`monetization_analytics.py`)
+  - Boundary: `MonetizationAnalyst.evaluate(metrics, weights, intent_baseline)`
+  - Data contract: monetization metric dict -> `MonetizationInsight`
+  - Known limitation: aggregate heuristics only; no audience-segment-specific recommendation planner.
 
-### 3) Explicit interface boundaries and contracts currently in use
+Implementation evidence: `tests/test_adaptive_loops.py` and `tests/test_priority3_expansion.py`.
+
+### 3) Still deferred target-state capabilities
+
+- Standalone ingestion pipeline service with near-real-time polling/compaction/staleness and dead-letter controls.
+- Standalone intelligence-engine service runtime with explicit model failover and confidence-floor gating controls.
+- Distributed creative-orchestrator worker/runtime topology with prompt-family quarantine automation.
+- Full experiment-and-post infrastructure for queue rebalancing, cohort routing, and auth-failure cancellation workflows.
+- Centralized model snapshot registry + rollback automation across adaptive services.
+
+### 4) Explicit interface boundaries and contracts currently in use
 
 Current boundaries are protocol and dataclass driven:
 
@@ -92,14 +114,14 @@ Current boundaries are protocol and dataclass driven:
 - [Architecture](docs/ARCHITECTURE.md): Current architecture and implementation-aligned module map.
 - [System design](docs/architecture/system-design.md): Target-state layered design and deferred capabilities.
 
-## Suggested first build order
+## Suggested next build order
 
 1. Extend `src/main.py` adapters from local stubs to production connectors.
 2. Deepen `src/instagram_ai_system/storage` persistence for content plans, assets, and posting logs.
 3. Expand trend ingestion and planner loops via `src/integrations/trends` + `trend_intelligence`.
 4. Integrate generation with manual approval workflows.
 5. Wire Instagram publishing and metrics sync end-to-end.
-6. Add adaptive optimization and deferred target-state services incrementally.
+6. Scale still-deferred target-state services incrementally (standalone ingestion/intelligence/creative orchestration control planes).
 
 ## Definition of done (MVP)
 
