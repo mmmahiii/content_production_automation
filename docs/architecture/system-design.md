@@ -20,14 +20,22 @@ Current implementation is package-oriented and centered on three roots:
   - `instagram/`: publisher and metrics integration utilities.
   - `trends/`: adapter protocol and normalized external trend ingestion.
 
-### 2) Deferred modules from system design
+- Adaptive loop modules in `src/instagram_ai_system`
+  - `mode_controller.py`: rule-based exploit/explore/mutation/chaos transitions with bounded exploration-coefficient updates.
+  - `shadow_testing.py`: deterministic shadow-variant ranking and winner/defer decisions based on weighted engagement + confidence thresholds.
+  - `learning_strategy_updates.py`: learning-loop epsilon adjustments from observed-vs-predicted error and objective-weight updates from KPI deltas.
+  - `monetization_analytics.py`: monetization vs growth scoring and drift detection heuristics used by adaptive planning.
+  - Implementation evidence: `tests/test_adaptive_loops.py`, `tests/test_priority3_expansion.py`.
 
-The following target-state services are **deferred** (not implemented as standalone modules yet):
+### 2) Still deferred target-state capabilities
 
-- `mode-controller`
-- shadow-testing subsystem within `experiment-and-post`
-- `monetization-analyst`
-- `learning-loop`
+The following items are still deferred relative to the target operating model (these are the truly missing pieces):
+
+- Full standalone `ingestion-pipeline` service with near-real-time polling, compaction, staleness handling, and dead-letter queue semantics.
+- Full standalone `intelligence-engine` model-serving component with confidence-floor gating and model failover as independent runtime concerns.
+- Full standalone `creative-orchestrator` worker fabric for asynchronous generation jobs and prompt-family quarantine automation.
+- Production `experiment-and-post` service mesh for platform-level queue rebalancing, cohort routing infrastructure, and auth-failure cancellation workflows.
+- Automated model snapshotting / rollback control plane across adaptive services (current logic is in-process and config-bound).
 
 ### 3) Explicit interface boundaries and contracts currently in use
 
@@ -46,6 +54,33 @@ Current interface contracts are:
   - `TrendSourceAdapter` protocol
   - canonical normalized `NormalizedTrend` records.
 
+Adaptive module boundaries currently in use:
+
+- `src/instagram_ai_system/mode_controller.py`
+  - Boundary: `ModeController.decide(current_mode, explore_coef, inputs)`.
+  - Data contract: `ModeInputs` in, `ModeDecision` out.
+  - Known limitations: rule-based thresholds are static constants; no learned transition policy or external risk-model dependency.
+
+- `src/instagram_ai_system/shadow_testing.py`
+  - Boundary: `ShadowTestEvaluator.evaluate(results, min_views=200)`.
+  - Data contract: list of `ShadowVariantResult` in, `ShadowWinner` out.
+  - Known limitations: scoring is single-pass weighted heuristic (primary/secondary metric blend) with fixed confidence cutoff; no time-series significance testing.
+
+- `src/instagram_ai_system/learning_strategy_updates.py`
+  - Boundary: `LearningLoopUpdater.apply(observed, predicted, optimization)` and `ObjectiveAwareStrategyUpdater.apply(objective, kpi_deltas, optimization)`.
+  - Data contract: arrays/delta maps + mutable `OptimizationConfig` in, `LearningLoopUpdate` / `StrategyUpdate` out.
+  - Known limitations: updates are local in-memory mutations with bounded step rules; no persisted model snapshot registry or experiment-aware bandit retraining.
+
+- `src/instagram_ai_system/monetization_analytics.py`
+  - Boundary: `MonetizationAnalyst.evaluate(metrics, weights=(0.65, 0.35), intent_baseline=0.03)`.
+  - Data contract: metrics dictionary in, `MonetizationInsight` out.
+  - Known limitations: heuristic normalization assumes minimal metric set (`views`, `shares`, `saves`, `intent_comments`, `profile_actions`) and does not yet segment by audience cohort.
+
+Implementation evidence for the adaptive boundaries above:
+
+- `tests/test_adaptive_loops.py` validates learning loop and objective strategy updates in coordinator flow.
+- `tests/test_priority3_expansion.py` validates mode controller, shadow testing, and monetization analytics updates in coordinator flow.
+
 ## Target Service Map by Layer
 
 | Layer | Target Service / Module | Inputs | Outputs | Trigger Cadence | Failure Handling | Downstream Dependencies |
@@ -54,21 +89,21 @@ Current interface contracts are:
 | 2. Virality Intelligence | `intelligence-engine` | Virality events, historical feature store, creator profile priors | Pattern reports, score models, idea scoring decisions | Hourly incremental, daily full refresh | Fall back to last healthy model; confidence floor gating | Creative Director, mode controller |
 | 3. Creative Generation | `creative-orchestrator` + generation workers | Strategy briefs, score bands, mode constraints, disallowed themes | Variant packages (hook/caption/overlay/video variants) | Event-driven when an idea is approved | If generation job fails, regenerate variant with alternate template; quarantine failed prompt families | Shadow testing, posting engine |
 | 4. Testing & Posting | `experiment-and-post` | Variant packages, schedule windows, hashtag/caption policies | Shadow test metrics, promoted post jobs, publishing logs | Shadow launch every approved batch; publish per schedule policy | Cancel jobs on auth or platform errors; retry with jitter; post queue rebalancing | Feedback loop, audit log |
-| 5. Feedback Learning | `learning-loop` *(deferred)* | Real-time performance metrics, predicted scores, experiment outcomes | Model deltas, exploration coefficient updates, strategy constraints | 15-min incremental, 48-hour policy updates | Freeze adaptive updates on anomaly; roll back to prior model snapshot | Mode controller, intelligence engine |
-| 6. Monetization Intelligence | `monetization-analyst` *(deferred)* | Audience composition, intent comments, saves/follows, profile actions | Monetization opportunity scores, segment drift alerts, strategy nudges | Daily + weekly strategic review | Hold recommendations when confidence low; request more exploration in affected segment | Creative Director, objective optimizer |
+| 5. Feedback Learning | `learning-loop` *(implemented in-process via `learning_strategy_updates.py`)* | Real-time performance metrics, predicted scores, experiment outcomes | Exploration coefficient updates, objective weight adjustments | Per analytics cycle when flags enabled | Bound updates via epsilon floor/ceiling and normalized weight re-scaling | Mode controller, intelligence engine |
+| 6. Monetization Intelligence | `monetization-analyst` *(implemented in-process via `monetization_analytics.py`)* | Engagement and intent proxies (`views`, `shares`, `saves`, `intent_comments`, `profile_actions`) | Monetization/growth scores, drift flag | Per analytics cycle when flags enabled | Drift flag when intent baseline underperforms despite growth; defer broader recommendation logic | Creative Director, objective optimizer |
 
 ## One Full Target Cycle Sequence (Text Diagram)
 
 1. `ingestion-pipeline` pulls latest reels, comments, and audio trend signals.
 2. Pipeline emits normalized `virality_event` records and writes to the feature store.
 3. `intelligence-engine` updates pattern clusters and computes score for candidate ideas.
-4. `mode-controller` *(deferred)* picks mode (Exploit / Explore / Mutation / Chaos) based on risk and recency performance.
+4. `mode-controller` (implemented in-process via `mode_controller.py`) picks mode (Exploit / Explore / Mutation / Chaos) based on risk and recency performance.
 5. `creative-orchestrator` requests structured variants from specialized generators.
 6. `experiment-and-post` sends variants to shadow testing accounts/cohorts.
 7. After the observation window, experiment service selects winner and promotes to primary distribution.
-8. Live performance metrics flow into `learning-loop` *(deferred)* for predicted-vs-actual error analysis.
-9. `learning-loop` *(deferred)* updates model priors and exploration coefficient.
-10. `monetization-analyst` *(deferred)* updates conversion-intent and audience-quality guidance for next cycle.
+8. Live performance metrics flow into `learning-loop` (implemented in-process via `learning_strategy_updates.py`) for predicted-vs-actual error analysis.
+9. `learning-loop` updates exploration coefficient and objective weights for next cycle.
+10. `monetization-analyst` (implemented in-process via `monetization_analytics.py`) updates drift and monetization guidance signals for next cycle.
 
 ## Operational Non-Functional Requirements
 
