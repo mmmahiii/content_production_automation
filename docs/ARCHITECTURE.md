@@ -161,3 +161,32 @@ Local/External Trend Signals
 ```
 
 This flow exists today across `src/main.py`, `src/instagram_ai_system/orchestration.py`, and `src/integrations/*` modules.
+
+## 5) Contracts / Payload Envelope Migration
+
+The system-level contract for generated and exchanged artifacts is the envelope shape:
+
+```json
+{
+  "schema_version": "1.0",
+  "trace_id": "...",
+  "created_at": "...",
+  "payload": { "...": "..." }
+}
+```
+
+### Compatibility behavior (migration window)
+
+- All producers should emit the envelope contract via the shared compatibility utility (`coerce_to_envelope`).
+- Consumers can accept either:
+  - fully enveloped payloads (preferred), or
+  - legacy plain payload objects (temporary migration behavior).
+- Legacy plain-payload acceptance is controlled by `INSTAGRAM_AI_ACCEPT_LEGACY_PAYLOADS`:
+  - default: enabled (`1` / unset)
+  - disable: set to `0`, `false`, `no`, or `off`
+
+### Sunset timeline
+
+- **Now through 2026-06-30**: dual-read mode (enveloped + legacy plain payloads).
+- **Starting 2026-07-01**: strict mode in all environments (`INSTAGRAM_AI_ACCEPT_LEGACY_PAYLOADS=0`) and legacy payload inputs are rejected.
+- **Post-sunset cleanup**: remove legacy-acceptance code path after one full release cycle in strict mode.
