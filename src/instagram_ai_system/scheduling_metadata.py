@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from .contracts_envelope import extract_payload, wrap_payload
+from .contracts_envelope import coerce_to_envelope, extract_payload
 from .schema_validation import validate_payload
 
 _ALLOWED_KPI_OBJECTIVES = {"reach", "saves", "shares", "watch-through"}
@@ -54,6 +54,6 @@ class SchedulingMetadataService:
             scheduled_items.append(item)
 
         payload = {"items": scheduled_items}
-        enveloped_payload = wrap_payload(payload)
+        enveloped_payload = coerce_to_envelope(payload)
         validate_payload(enveloped_payload, self.schema_path)
         return enveloped_payload
