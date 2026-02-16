@@ -197,3 +197,13 @@ MVP is complete when:
 2. Every acceptance criterion in section 3 is testable and passes in local validation runs.
 3. KPI fields in section 4 are populated from ingested data for at least one sample dataset.
 4. Non-goal constraints in section 5 are enforced (especially no autonomous posting).
+
+
+## 8) Publish Safety Enforcement (Production Loop)
+
+To enforce section 5 non-goals while keeping a controlled live-publish escape hatch, the production loop applies hard publish gates:
+
+1. `ALLOW_AUTONOMOUS_PUBLISH=false` by default, which forces simulation payloads even when Instagram credentials are present.
+2. Live publish path is only allowed when **all** governance signals are present: `ALLOW_AUTONOMOUS_PUBLISH=true`, `PUBLISH_APPROVAL_GRANTED=true`, and `GOVERNANCE_APPROVED=true`.
+3. If any gate is missing, publish stage returns a simulated payload and includes a blocking reason for auditability.
+4. This behavior is covered by automated tests for default simulation, explicit override, and blocked-without-approval paths.
